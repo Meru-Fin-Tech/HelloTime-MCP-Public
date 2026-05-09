@@ -84,6 +84,26 @@ test('POST /mcp with unknown session-id returns 404 so client can recover', asyn
   assert.match(body.error.message, /Reinitialize/);
 });
 
+test('OPTIONS /mcp preflight returns 204 and exposes mcp-session-id', async () => {
+  const res = await fetch(`${baseUrl}/mcp`, {
+    method: 'OPTIONS',
+    headers: {
+      origin: 'https://example.com',
+      'access-control-request-method': 'POST',
+      'access-control-request-headers': 'content-type, mcp-session-id',
+    },
+  });
+  assert.equal(res.status, 204);
+  assert.match(
+    res.headers.get('access-control-expose-headers') ?? '',
+    /mcp-session-id/i,
+  );
+  assert.match(
+    res.headers.get('access-control-allow-methods') ?? '',
+    /DELETE/,
+  );
+});
+
 test('initialize returns a session id usable for follow-ups', async () => {
   const init = await rpc({
     jsonrpc: '2.0',

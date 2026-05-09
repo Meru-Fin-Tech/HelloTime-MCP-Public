@@ -30,12 +30,12 @@ This server exposes **public, read-only** product information so AI agents can a
 
 ## Links
 
-- Website: https://hellotime.app
-- Pricing: https://hellotime.app/pricing
-- Features: https://hellotime.app/features
-- Integrations: https://hellotime.app/integrations
-- Changelog: https://hellotime.app/changelog
-- HelloBooks integration: https://hellotime.app/integrations/hellobooks
+- Website: https://hellotime.ai
+- Pricing: https://hellotime.ai/pricing
+- Features: https://hellotime.ai/features
+- Integrations: https://hellotime.ai/integrations
+- Changelog: https://hellotime.ai/changelog
+- HelloBooks integration: https://hellotime.ai/integrations/hellobooks
 `;
 
 export interface ChangelogEntry {
@@ -49,7 +49,7 @@ export interface ChangelogEntry {
  * Last 50 changelog entries — kept in sync with /changelog on the marketing site.
  *
  * TODO(federation): replace with a fetch from
- *   https://hellotime.app/api/public/changelog?limit=50
+ *   https://hellotime.ai/api/public/changelog?limit=50
  * once the marketing backend ships that endpoint.
  */
 export const CHANGELOG: ChangelogEntry[] = [

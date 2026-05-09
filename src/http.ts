@@ -54,16 +54,19 @@ const sessionLimiter = rateLimit({
 
 interface SessionEntry {
   transport: StreamableHTTPServerTransport;
-  createdAt: number;
+  lastUsedAt: number;
 }
 const sessions = new Map<string, SessionEntry>();
 
-// Reap idle sessions (>30 min) so memory doesn't grow unbounded.
-const SESSION_TTL_MS = 30 * 60 * 1000;
+// Reap sessions that have been idle for >30 min so memory doesn't grow
+// unbounded. We track lastUsedAt (refreshed on every request) rather than
+// createdAt — otherwise a long-running interactive session would be reaped
+// 30 min after init regardless of activity.
+const SESSION_IDLE_TTL_MS = 30 * 60 * 1000;
 setInterval(() => {
   const now = Date.now();
   for (const [id, entry] of sessions) {
-    if (now - entry.createdAt > SESSION_TTL_MS) {
+    if (now - entry.lastUsedAt > SESSION_IDLE_TTL_MS) {
       entry.transport.close().catch(() => {});
       sessions.delete(id);
     }
@@ -95,6 +98,7 @@ async function handleMcpRequest(req: Request, res: Response): Promise<void> {
       sendJsonRpcError(res, 404, -32001, 'Session not found. Reinitialize with `initialize`.');
       return;
     }
+    entry.lastUsedAt = Date.now();
     await entry.transport.handleRequest(req, res, req.body);
     return;
   }
@@ -114,7 +118,7 @@ async function handleMcpRequest(req: Request, res: Response): Promise<void> {
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID(),
     onsessioninitialized: (id) => {
-      sessions.set(id, { transport, createdAt: Date.now() });
+      sessions.set(id, { transport, lastUsedAt: Date.now() });
     },
   });
   transport.onclose = () => {
@@ -135,6 +139,25 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1); // accurate req.ip behind a load balancer
 app.use(express.json({ limit: '256kb' })); // requests are tiny — cap aggressively
 
+// Permissive CORS — the catalog is public, browser-based MCP clients should
+// be able to connect, and they need `mcp-session-id` exposed to read the
+// session identifier off the initialize response.
+app.use('/mcp', (req, res, next) => {
+  res.setHeader('access-control-allow-origin', req.header('origin') ?? '*');
+  res.setHeader('access-control-allow-methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader(
+    'access-control-allow-headers',
+    'content-type, accept, mcp-session-id, mcp-protocol-version',
+  );
+  res.setHeader('access-control-expose-headers', 'mcp-session-id');
+  res.setHeader('access-control-max-age', '86400');
+  if (req.method === 'OPTIONS') {
+    res.status(204).end();
+    return;
+  }
+  next();
+});
+
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', sessions: sessions.size });
 });
@@ -142,12 +165,12 @@ app.get('/health', (_req, res) => {
 app.get('/info', (_req, res) => {
   res.json({
     name: 'hellotime-mcp-public',
-    version: '0.1.1',
+    version: '0.1.2',
     description:
       'Public read-only MCP server for HelloTime plans, features, country support, and payroll capabilities.',
     transport: { http: '/mcp', sse: '/mcp' },
-    install: 'claude mcp add --transport http hellotime https://mcp.hellotime.app/mcp',
-    docs: 'https://hellotime.app/mcp',
+    install: 'claude mcp add --transport http hellotime https://mcp.hellotime.ai/mcp',
+    docs: 'https://hellotime.ai/mcp',
     repository: 'https://github.com/Meru-Fin-Tech/HelloTime-MCP-Public',
   });
 });

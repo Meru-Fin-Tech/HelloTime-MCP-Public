@@ -31,7 +31,7 @@ export function listPlans(args: ListPlansArgs) {
     volumeDiscounts: VOLUME_TIERS,
     annualPrepayDiscountPercent: ANNUAL_PREPAY_DISCOUNT_PERCENT,
     freeTrialDays: FREE_TRIAL_DAYS,
-    source: 'https://hellotime.app/pricing',
+    source: 'https://hellotime.ai/pricing',
     note: 'Prices are launch-offer (promo) and list (sticker). Volume and annual discounts stack. Currencies in local denomination.',
   };
 }

@@ -36,7 +36,7 @@ export const COUNTRY_SUPPORT: CountrySupport[] = [
     country: 'IN',
     countryName: 'India',
     defaultCurrency: 'INR',
-    marketingUrl: 'https://hellotime.app/best-time-tracking-software-india',
+    marketingUrl: 'https://hellotime.ai/best-time-tracking-software-india',
     features: [
       { key: 'gst-invoicing', label: 'GST invoicing via HelloBooks',
         description: 'Billable hours flow into HelloBooks for GST e-invoice and e-way bill generation.' },
@@ -76,7 +76,7 @@ export const COUNTRY_SUPPORT: CountrySupport[] = [
     country: 'AU',
     countryName: 'Australia',
     defaultCurrency: 'AUD',
-    marketingUrl: 'https://hellotime.app/au',
+    marketingUrl: 'https://hellotime.ai/au',
     features: [
       { key: 'shift-presets', label: '2-shift / 3-shift presets',
         description: 'Pre-baked shift policies suited to Australian retail and hospitality.' },
@@ -101,7 +101,7 @@ export const COUNTRY_SUPPORT: CountrySupport[] = [
     country: 'GB',
     countryName: 'United Kingdom',
     defaultCurrency: 'GBP',
-    marketingUrl: 'https://hellotime.app/uk',
+    marketingUrl: 'https://hellotime.ai/uk',
     features: [
       { key: 'gdpr-compliant', label: 'GDPR-compliant data handling',
         description: 'Data subject access requests and erasure flows aligned with UK GDPR.' },
@@ -121,7 +121,7 @@ export const COUNTRY_SUPPORT: CountrySupport[] = [
     country: 'US',
     countryName: 'United States',
     defaultCurrency: 'USD',
-    marketingUrl: 'https://hellotime.app/us',
+    marketingUrl: 'https://hellotime.ai/us',
     features: [
       { key: 'overtime-flsa', label: 'FLSA overtime',
         description: 'Federal overtime rules over 40 hours / week with state overrides.' },
@@ -141,7 +141,7 @@ export const COUNTRY_SUPPORT: CountrySupport[] = [
     country: 'CA',
     countryName: 'Canada',
     defaultCurrency: 'CAD',
-    marketingUrl: 'https://hellotime.app/ca',
+    marketingUrl: 'https://hellotime.ai/ca',
     features: [
       { key: 'province-rules', label: 'Province-specific labour rules',
         description: 'Daily and weekly OT thresholds vary by province; HelloTime bakes them in.' },
@@ -156,7 +156,7 @@ export const COUNTRY_SUPPORT: CountrySupport[] = [
     country: 'AE',
     countryName: 'United Arab Emirates',
     defaultCurrency: 'AED',
-    marketingUrl: 'https://hellotime.app/ae',
+    marketingUrl: 'https://hellotime.ai/ae',
     features: [
       { key: 'wps-payouts', label: 'WPS-aligned payouts',
         description: 'Salary file generation aligned with UAE Wage Protection System.' },
@@ -176,7 +176,7 @@ export const COUNTRY_SUPPORT: CountrySupport[] = [
     country: 'SG',
     countryName: 'Singapore',
     defaultCurrency: 'SGD',
-    marketingUrl: 'https://hellotime.app/sg',
+    marketingUrl: 'https://hellotime.ai/sg',
     features: [
       { key: 'cpf-tracking', label: 'CPF contribution tracking',
         description: 'Track CPF contributions per employee for IRAS reporting.' },
@@ -194,7 +194,7 @@ export const COUNTRY_SUPPORT: CountrySupport[] = [
     country: 'NZ',
     countryName: 'New Zealand',
     defaultCurrency: 'NZD',
-    marketingUrl: 'https://hellotime.app/nz',
+    marketingUrl: 'https://hellotime.ai/nz',
     features: [
       { key: 'kiwisaver', label: 'KiwiSaver tracking',
         description: 'Track KiwiSaver employee and employer contributions.' },
