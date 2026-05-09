@@ -17,7 +17,7 @@ import { featureSearch, featureSearchSchema } from './tools/featureSearch.js';
 import { RESOURCES, readResource } from './resources/index.js';
 
 const SERVER_NAME = 'hellotime-public';
-const SERVER_VERSION = '0.1.0';
+const SERVER_VERSION = '0.1.1';
 
 function asJsonContent(payload: unknown) {
   return {
