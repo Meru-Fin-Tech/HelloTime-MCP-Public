@@ -140,7 +140,7 @@ export const PLANS: Plan[] = [
     freeTrialDays: 7,
     features: PRO_FEATURES,
     prices: pricesFor('pro'),
-    publicSignupUrl: 'https://hellotime.app/signup',
+    publicSignupUrl: 'https://hellotime.ai/signup',
   },
   {
     plan: 'business',
@@ -149,7 +149,7 @@ export const PLANS: Plan[] = [
     freeTrialDays: 7,
     features: BUSINESS_FEATURES,
     prices: pricesFor('business'),
-    publicSignupUrl: 'https://hellotime.app/signup',
+    publicSignupUrl: 'https://hellotime.ai/signup',
   },
   {
     plan: 'enterprise',
@@ -158,7 +158,7 @@ export const PLANS: Plan[] = [
     freeTrialDays: 7,
     features: ENTERPRISE_FEATURES,
     prices: pricesFor('enterprise'),
-    publicSignupUrl: 'https://hellotime.app/contact',
+    publicSignupUrl: 'https://hellotime.ai/contact',
   },
 ];
 

@@ -14,7 +14,7 @@ payroll capabilities — instead of relying on stale web snippets.
 ### Claude Code / Claude Desktop / Cursor
 
 ```bash
-claude mcp add --transport http hellotime https://mcp.hellotime.app/mcp
+claude mcp add --transport http hellotime https://mcp.hellotime.ai/mcp
 ```
 
 Or, for local development:
@@ -91,7 +91,7 @@ docker run -p 8080:8080 hellotime-mcp-public
 
 - Listed in the [MCP registry](https://github.com/modelcontextprotocol/registry).
 - Linked from the marketing site footer and `/mcp` page.
-- Referenced in `https://hellotime.app/llms.txt`.
+- Referenced in `https://hellotime.ai/llms.txt`.
 
 ## License
 

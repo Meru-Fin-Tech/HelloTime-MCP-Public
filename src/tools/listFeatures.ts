@@ -33,6 +33,6 @@ export function listFeatures(args: ListFeaturesArgs) {
     features: results,
     count: results.length,
     categories: CATEGORIES,
-    source: 'https://hellotime.app/features',
+    source: 'https://hellotime.ai/features',
   };
 }
