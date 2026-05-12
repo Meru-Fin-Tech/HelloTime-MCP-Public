@@ -70,7 +70,7 @@ export function featureSearch(args: FeatureSearchArgs) {
         label: f.label,
         description: f.description,
         context: f.category,
-        url: 'https://hellotime.app/features',
+        url: 'https://hellotime.ai/features',
         score: s,
       });
     }
