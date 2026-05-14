@@ -10,6 +10,13 @@
  *   - State PT notifications (Maharashtra, Karnataka, West Bengal, Tamil
  *     Nadu / GCC, Gujarat, Telangana, Andhra Pradesh)
  *
+ * Labour Welfare Fund (LWF) entries were added separately (May 2026) covering
+ * 11 states. A subset — Maharashtra, Karnataka, Telangana, West Bengal,
+ * Haryana — is `verification: 'verified'` based on multi-source corroboration
+ * including state board or amendment-act citations. The rest are
+ * `'public-source-unreviewed'` pending a direct gazette check (see the LWF
+ * block comment for details).
+ *
  * AU and US blocks are sourced from public government pages but have NOT
  * been through the same internal review pass as the IN block — they ship
  * with `verification: 'public-source-unreviewed'`. The audit field is
@@ -28,9 +35,18 @@ export type StatutoryCategory =
   | 'professional-tax'
   | 'pension'
   | 'unemployment'
-  | 'state-payroll-tax';
+  | 'state-payroll-tax'
+  | 'labour-welfare-fund';
 
-export type RateType = 'percentage' | 'flat-monthly' | 'slab';
+export type RateType = 'percentage' | 'flat-monthly' | 'flat-period' | 'slab';
+
+/**
+ * Period the `flatAmount` applies to, for `rateType === 'flat-period'`.
+ * Use when a flat contribution is per-pay-cycle but the cycle isn't monthly
+ * (e.g. Indian Labour Welfare Fund — half-yearly in MH/WB/GJ/Delhi,
+ * yearly in KA/TN/TS/AP, monthly in PB/HR/Kerala-shops).
+ */
+export type RatePeriod = 'monthly' | 'half-yearly' | 'yearly';
 
 export interface RateSlab {
   /** Upper bound of this slab in the currency. `null` = no upper bound (highest slab). */
@@ -56,8 +72,17 @@ export interface StatutoryRate {
   rateType: RateType;
   /** Percentage rate as fraction (0.12 = 12%). Set for rateType=percentage. */
   rate?: number;
-  /** Flat amount per period in the country's currency. Set for rateType=flat-monthly. */
+  /** Flat amount per period in the country's currency. Set for rateType=flat-monthly or flat-period. */
   flatAmount?: number;
+  /** Cadence the `flatAmount` applies to. Required for rateType=flat-period. */
+  period?: RatePeriod;
+  /**
+   * Calendar months (1=Jan … 12=Dec) when the contribution is deducted /
+   * remitted. For half-yearly LWF this is typically [6, 12]; for yearly LWF
+   * usually [12]; monthly schemes may leave this undefined. Optional even for
+   * flat-period entries when the state notification doesn't fix a month.
+   */
+  deductionMonths?: number[];
   /** Slab table. Set for rateType=slab. */
   slabs?: RateSlab[];
   /** What the rate applies to (e.g. "PF wages (Basic + DA)", "Gross monthly wages"). */
@@ -342,6 +367,464 @@ const IN_PT: StatutoryRate[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// India — Labour Welfare Fund (LWF) by state.
+//
+// LWF is a state-level statutory welfare cess: a small fixed per-employee
+// deduction matched (or more-than-matched) by the employer, remitted to the
+// state Labour Welfare Board. Unlike PF/ESI, amounts are flat (not
+// wage-percentage) and the cadence varies: monthly in PB/HR/Kerala-shops,
+// half-yearly in MH/GJ/WB/Delhi/Kerala-factories, yearly (December close) in
+// KA/TN/TS/AP.
+//
+// LWF rates change every few years via state notifications. Entries below were
+// compiled in May 2026 from a mix of state Labour Welfare Board portals and
+// well-known secondary aggregators (Simpliance, ClearTax, FactoHR, Akrivia,
+// PRS India, TaxGuru). Entries where multiple sources — including at least one
+// official board reference or amendment-act citation — corroborate the current
+// rate are marked `verification: 'verified'`; everything else is
+// `'public-source-unreviewed'` pending a direct gazette check.
+//
+// Each state contributes two entries (employee + employer), mirroring the
+// PF/ESI split. Kerala has two regimes (factories vs shops/commercial) and
+// gets four entries.
+// ---------------------------------------------------------------------------
+
+const IN_LWF_BASE = {
+  country: 'IN' as const,
+  scheme: 'LWF',
+  category: 'labour-welfare-fund' as const,
+  rateType: 'flat-period' as const,
+  appliedTo: 'Per-employee statutory welfare-fund deduction (not wage-linked unless noted)',
+  authority: 'State Labour Welfare Board',
+  currency: 'INR',
+};
+
+const IN_LWF_VERIFIED = {
+  verification: 'verified' as const,
+  lastReviewed: '2026-05-14',
+};
+
+const IN_LWF_UNREVIEWED = {
+  verification: 'public-source-unreviewed' as const,
+  lastReviewed: '2026-05-14',
+};
+
+const IN_LWF: StatutoryRate[] = [
+  // -- Maharashtra (half-yearly: June + December close) ---------------------
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-maharashtra-employee',
+    label: 'Labour Welfare Fund — Maharashtra (employee)',
+    party: 'employee',
+    state: 'Maharashtra',
+    flatAmount: 25,
+    period: 'half-yearly',
+    deductionMonths: [6, 12],
+    source: 'Maharashtra Labour Welfare Fund Act, 1953 (as amended by Mah. Act 2024); https://prsindia.org/bills/states/he-maharashtra-labour-welfare-fund-amendment-bill-2024',
+    effectiveFrom: '2024-03-18',
+    ...IN_LWF_VERIFIED,
+    notes: [
+      'Up from ₹12 per half-year per the 2019 amendment; doubled-and-some to ₹25 via the 2024 Amendment Act.',
+      'Periods close 30-Jun and 31-Dec; remittance due by 15-Jul and 15-Jan respectively.',
+      'Applies to establishments employing 5 or more workers.',
+    ],
+  },
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-maharashtra-employer',
+    label: 'Labour Welfare Fund — Maharashtra (employer)',
+    party: 'employer',
+    state: 'Maharashtra',
+    flatAmount: 75,
+    period: 'half-yearly',
+    deductionMonths: [6, 12],
+    source: 'Maharashtra Labour Welfare Fund Act, 1953 (as amended by Mah. Act 2024); https://prsindia.org/bills/states/he-maharashtra-labour-welfare-fund-amendment-bill-2024',
+    effectiveFrom: '2024-03-18',
+    ...IN_LWF_VERIFIED,
+    notes: [
+      'Employer share = 3× employee share (₹75 per half-year against employee ₹25).',
+      'Periods close 30-Jun and 31-Dec; remittance due by 15-Jul and 15-Jan respectively.',
+    ],
+  },
+
+  // -- Karnataka (annual: December close) -----------------------------------
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-karnataka-employee',
+    label: 'Labour Welfare Fund — Karnataka (employee)',
+    party: 'employee',
+    state: 'Karnataka',
+    flatAmount: 50,
+    period: 'yearly',
+    deductionMonths: [12],
+    source: 'Karnataka Labour Welfare Fund Act, 1965 (as amended 2024); https://klwbapps.karnataka.gov.in/',
+    effectiveFrom: '2025-01-10',
+    ...IN_LWF_VERIFIED,
+    notes: [
+      'Up from ₹20 per the 2024 Amendment Act effective 10-Jan-2025.',
+      'Annual contribution period closes 31-Dec; remittance due by 15-Jan of the following year.',
+      'Applies to establishments employing 10 or more workers (Karnataka threshold).',
+    ],
+  },
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-karnataka-employer',
+    label: 'Labour Welfare Fund — Karnataka (employer)',
+    party: 'employer',
+    state: 'Karnataka',
+    flatAmount: 100,
+    period: 'yearly',
+    deductionMonths: [12],
+    source: 'Karnataka Labour Welfare Fund Act, 1965 (as amended 2024); https://klwbapps.karnataka.gov.in/',
+    effectiveFrom: '2025-01-10',
+    ...IN_LWF_VERIFIED,
+    notes: [
+      'Up from ₹40 per the 2024 Amendment Act. State government adds an additional ₹50 per worker.',
+    ],
+  },
+
+  // -- Tamil Nadu (annual: December close — NOT half-yearly) ----------------
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-tamil-nadu-employee',
+    label: 'Labour Welfare Fund — Tamil Nadu (employee)',
+    party: 'employee',
+    state: 'Tamil Nadu',
+    flatAmount: 20,
+    period: 'yearly',
+    deductionMonths: [12],
+    source: 'Tamil Nadu Labour Welfare Fund Act, 1972 (2022 revision); https://www.lwb.tn.gov.in/',
+    effectiveFrom: '2022-01-01',
+    ...IN_LWF_UNREVIEWED,
+    notes: [
+      'Up from ₹10 per the 2022 revision.',
+      'Contribution period closes 31-Dec; remittance due by 31-Jan of the following year.',
+      'Despite the common "half-yearly" framing in payroll guides, the TN Act prescribes a single annual contribution (no June cycle).',
+    ],
+  },
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-tamil-nadu-employer',
+    label: 'Labour Welfare Fund — Tamil Nadu (employer)',
+    party: 'employer',
+    state: 'Tamil Nadu',
+    flatAmount: 40,
+    period: 'yearly',
+    deductionMonths: [12],
+    source: 'Tamil Nadu Labour Welfare Fund Act, 1972 (2022 revision); https://www.lwb.tn.gov.in/',
+    effectiveFrom: '2022-01-01',
+    ...IN_LWF_UNREVIEWED,
+    notes: [
+      'Up from ₹20 per the 2022 revision. State government adds an additional ₹20 per worker.',
+    ],
+  },
+
+  // -- Telangana (annual: December close) -----------------------------------
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-telangana-employee',
+    label: 'Labour Welfare Fund — Telangana (employee)',
+    party: 'employee',
+    state: 'Telangana',
+    flatAmount: 2,
+    period: 'yearly',
+    deductionMonths: [12],
+    source: 'Telangana Labour Welfare Fund Act, 1987; https://labour.telangana.gov.in/content/ActsRules/TELANGANA%20LABOUR%20WELFARE%20FUND%20ACT,%201987.htm',
+    effectiveFrom: '1987-01-01',
+    ...IN_LWF_VERIFIED,
+    notes: [
+      'Rate unrevised since the 1987 Act — the ₹2 employee / ₹5 employer figures still apply.',
+      'Applies to establishments employing 20 or more workers.',
+      'Excludes employees in managerial/supervisory roles drawing wages above ₹1,600/month.',
+    ],
+  },
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-telangana-employer',
+    label: 'Labour Welfare Fund — Telangana (employer)',
+    party: 'employer',
+    state: 'Telangana',
+    flatAmount: 5,
+    period: 'yearly',
+    deductionMonths: [12],
+    source: 'Telangana Labour Welfare Fund Act, 1987; https://labour.telangana.gov.in/content/ActsRules/TELANGANA%20LABOUR%20WELFARE%20FUND%20ACT,%201987.htm',
+    effectiveFrom: '1987-01-01',
+    ...IN_LWF_VERIFIED,
+    notes: ['Annual remittance due by 31-Jan of the following year.'],
+  },
+
+  // -- Andhra Pradesh (annual: December close) ------------------------------
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-andhra-pradesh-employee',
+    label: 'Labour Welfare Fund — Andhra Pradesh (employee)',
+    party: 'employee',
+    state: 'Andhra Pradesh',
+    flatAmount: 30,
+    period: 'yearly',
+    deductionMonths: [12],
+    source: 'Andhra Pradesh Labour Welfare Fund Act, 1987',
+    effectiveFrom: '2016-01-01',
+    ...IN_LWF_UNREVIEWED,
+    notes: [
+      'Most-recent revision believed to be 2016 (₹30 employee / ₹70 employer).',
+      'Applies to establishments employing 20 or more workers; excludes managerial roles drawing wages above ₹1,600/month.',
+      'No notification URL captured — flagged unreviewed pending a direct gazette check.',
+    ],
+  },
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-andhra-pradesh-employer',
+    label: 'Labour Welfare Fund — Andhra Pradesh (employer)',
+    party: 'employer',
+    state: 'Andhra Pradesh',
+    flatAmount: 70,
+    period: 'yearly',
+    deductionMonths: [12],
+    source: 'Andhra Pradesh Labour Welfare Fund Act, 1987',
+    effectiveFrom: '2016-01-01',
+    ...IN_LWF_UNREVIEWED,
+    notes: ['Annual remittance due by 31-Jan of the following year.'],
+  },
+
+  // -- Gujarat (half-yearly: June + December close — NOT monthly) -----------
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-gujarat-employee',
+    label: 'Labour Welfare Fund — Gujarat (employee)',
+    party: 'employee',
+    state: 'Gujarat',
+    flatAmount: 6,
+    period: 'half-yearly',
+    deductionMonths: [6, 12],
+    source: 'Gujarat Labour Welfare Fund Act, 1953; https://glwb.gujarat.gov.in/',
+    effectiveFrom: '2016-12-01',
+    ...IN_LWF_UNREVIEWED,
+    notes: [
+      'Periods close 30-Jun and 31-Dec; remittance due by 15-Jul and 15-Jan respectively.',
+      'Common payroll-guide framing of Gujarat LWF as "monthly" is incorrect — the Act prescribes half-yearly contributions.',
+      'Applies to establishments employing 10 or more workers; excludes managerial roles drawing wages above ₹3,500/month.',
+    ],
+  },
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-gujarat-employer',
+    label: 'Labour Welfare Fund — Gujarat (employer)',
+    party: 'employer',
+    state: 'Gujarat',
+    flatAmount: 12,
+    period: 'half-yearly',
+    deductionMonths: [6, 12],
+    source: 'Gujarat Labour Welfare Fund Act, 1953; https://glwb.gujarat.gov.in/',
+    effectiveFrom: '2016-12-01',
+    ...IN_LWF_UNREVIEWED,
+    notes: ['Employer share = 2× employee share (₹12 per half-year against employee ₹6).'],
+  },
+
+  // -- West Bengal (half-yearly: June + December close) ---------------------
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-west-bengal-employee',
+    label: 'Labour Welfare Fund — West Bengal (employee)',
+    party: 'employee',
+    state: 'West Bengal',
+    flatAmount: 3,
+    period: 'half-yearly',
+    deductionMonths: [6, 12],
+    source: 'West Bengal Labour Welfare Fund Act, 1974 (2024 revision); https://lwf.wblabour.gov.in/wblabour/',
+    effectiveFrom: '2024-01-01',
+    ...IN_LWF_VERIFIED,
+    notes: [
+      'Employee share unchanged at ₹3 per half-year, but employer share jumped from ₹15 to ₹30 effective 01-Jan-2024.',
+      'Periods close 30-Jun and 31-Dec; remittance due by 15-Jul and 15-Jan respectively.',
+      'Applies to establishments employing 10 or more workers; excludes managerial roles drawing wages above ₹1,600/month.',
+    ],
+  },
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-west-bengal-employer',
+    label: 'Labour Welfare Fund — West Bengal (employer)',
+    party: 'employer',
+    state: 'West Bengal',
+    flatAmount: 30,
+    period: 'half-yearly',
+    deductionMonths: [6, 12],
+    source: 'West Bengal Labour Welfare Fund Act, 1974 (2024 revision); https://lwf.wblabour.gov.in/wblabour/',
+    effectiveFrom: '2024-01-01',
+    ...IN_LWF_VERIFIED,
+    notes: ['Up from ₹15 per half-year effective 01-Jan-2024.'],
+  },
+
+  // -- Kerala (factories regime — half-yearly) ------------------------------
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-kerala-factories-employee',
+    label: 'Labour Welfare Fund — Kerala (factories/plantations, employee)',
+    party: 'employee',
+    state: 'Kerala',
+    flatAmount: 4,
+    period: 'half-yearly',
+    deductionMonths: [6, 12],
+    source: 'Kerala Labour Welfare Fund Act, 1975 (as amended 2021)',
+    effectiveFrom: '2022-01-01',
+    ...IN_LWF_UNREVIEWED,
+    notes: [
+      'Factories-and-plantations regime. Periods close 30-Jun and 31-Dec; remittance due by 15-Jul and 15-Jan.',
+      'A separate regime under the Kerala Shops & Commercial Establishments Workers Welfare Fund Act, 2006 applies to shops/commercial estabs at monthly ₹50/₹50 — see the in-lwf-kerala-shops-* entries.',
+    ],
+  },
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-kerala-factories-employer',
+    label: 'Labour Welfare Fund — Kerala (factories/plantations, employer)',
+    party: 'employer',
+    state: 'Kerala',
+    flatAmount: 8,
+    period: 'half-yearly',
+    deductionMonths: [6, 12],
+    source: 'Kerala Labour Welfare Fund Act, 1975 (as amended 2021)',
+    effectiveFrom: '2022-01-01',
+    ...IN_LWF_UNREVIEWED,
+    notes: ['Employer share = 2× employee share for the factories regime.'],
+  },
+
+  // -- Kerala (shops & commercial establishments regime — monthly) ----------
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-kerala-shops-employee',
+    label: 'Labour Welfare Fund — Kerala (shops & commercial estabs, employee)',
+    party: 'employee',
+    state: 'Kerala',
+    flatAmount: 50,
+    period: 'monthly',
+    source: 'Kerala Shops & Commercial Establishments Workers Welfare Fund Act, 2006',
+    effectiveFrom: '2022-01-01',
+    ...IN_LWF_UNREVIEWED,
+    notes: [
+      'Shops-and-commercial-establishments regime — applies to non-factory employers covered by the 2006 Act.',
+      'Deducted monthly (last day of the calendar month); employer files by the 5th of the following month.',
+    ],
+  },
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-kerala-shops-employer',
+    label: 'Labour Welfare Fund — Kerala (shops & commercial estabs, employer)',
+    party: 'employer',
+    state: 'Kerala',
+    flatAmount: 50,
+    period: 'monthly',
+    source: 'Kerala Shops & Commercial Establishments Workers Welfare Fund Act, 2006',
+    effectiveFrom: '2022-01-01',
+    ...IN_LWF_UNREVIEWED,
+    notes: ['Employer share equals employee share (₹50 each per month) under the shops regime.'],
+  },
+
+  // -- Punjab (monthly) -----------------------------------------------------
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-punjab-employee',
+    label: 'Labour Welfare Fund — Punjab (employee)',
+    party: 'employee',
+    state: 'Punjab',
+    flatAmount: 5,
+    period: 'monthly',
+    source: 'Punjab Labour Welfare Fund Act, 1965; https://hrylabour.gov.in/staticdocs/labourActpdfdocs/Punjab_Labour_Welfar_Fund_Act.pdf',
+    effectiveFrom: '2018-01-01',
+    ...IN_LWF_UNREVIEWED,
+    notes: [
+      'Monthly deduction; employer remits half-yearly by 15-Apr (Oct–Mar) and 15-Oct (Apr–Sep).',
+      'Flat amount — not a wage-percentage despite some payroll-guide renderings that show "5%" / "20%" (those are stripped-rupee-sign artifacts).',
+    ],
+  },
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-punjab-employer',
+    label: 'Labour Welfare Fund — Punjab (employer)',
+    party: 'employer',
+    state: 'Punjab',
+    flatAmount: 20,
+    period: 'monthly',
+    source: 'Punjab Labour Welfare Fund Act, 1965; https://hrylabour.gov.in/staticdocs/labourActpdfdocs/Punjab_Labour_Welfar_Fund_Act.pdf',
+    effectiveFrom: '2018-01-01',
+    ...IN_LWF_UNREVIEWED,
+    notes: ['Employer share = 4× employee share (₹20 against employee ₹5).'],
+  },
+
+  // -- Haryana (monthly, wage-linked cap) -----------------------------------
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-haryana-employee',
+    label: 'Labour Welfare Fund — Haryana (employee)',
+    party: 'employee',
+    state: 'Haryana',
+    flatAmount: 34,
+    period: 'monthly',
+    appliedTo: '0.2% of wages, capped at ₹34/month per employee',
+    source: 'Punjab Labour Welfare Fund Act, 1965 (as extended to Haryana); https://hrylabour.gov.in/content/cms/MTU',
+    effectiveFrom: '2025-01-01',
+    ...IN_LWF_VERIFIED,
+    notes: [
+      'Employee contribution is technically 0.2% of wages but capped at ₹34/month; the cap is hit at monthly wages ≥ ₹17,000.',
+      'Up from ₹31 (effective 01-Jan-2023) to ₹34 effective 01-Jan-2025.',
+    ],
+  },
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-haryana-employer',
+    label: 'Labour Welfare Fund — Haryana (employer)',
+    party: 'employer',
+    state: 'Haryana',
+    flatAmount: 68,
+    period: 'monthly',
+    appliedTo: '0.4% of wages, capped at ₹68/month per employee (2× employee share)',
+    source: 'Punjab Labour Welfare Fund Act, 1965 (as extended to Haryana); https://hrylabour.gov.in/content/cms/MTU',
+    effectiveFrom: '2025-01-01',
+    ...IN_LWF_VERIFIED,
+    notes: [
+      'Employer share = 2× employee share, capped at ₹68/month.',
+      'Up from ₹62 (effective 01-Jan-2023) to ₹68 effective 01-Jan-2025.',
+    ],
+  },
+
+  // -- Delhi (half-yearly: June + December close) ---------------------------
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-delhi-employee',
+    label: 'Labour Welfare Fund — Delhi (employee)',
+    party: 'employee',
+    state: 'Delhi',
+    flatAmount: 0.75,
+    period: 'half-yearly',
+    deductionMonths: [6, 12],
+    source: 'Bombay Labour Welfare Fund Act, 1953 (as extended to Delhi) + Delhi Labour Welfare Fund Rules, 1997; https://dlwb.delhi.gov.in/',
+    effectiveFrom: '1997-01-01',
+    ...IN_LWF_UNREVIEWED,
+    notes: [
+      'Delhi LWF amounts have not been revised in decades — the ₹0.75 / ₹2.25 figures are nominal paise-era values that are still in force per the 1997 Rules.',
+      'Government of Delhi contributes 2× the employee share in addition.',
+      'Applies to establishments employing 5 or more workers; excludes managerial/supervisory roles drawing wages above ₹2,500/month.',
+    ],
+  },
+  {
+    ...IN_LWF_BASE,
+    id: 'in-lwf-delhi-employer',
+    label: 'Labour Welfare Fund — Delhi (employer)',
+    party: 'employer',
+    state: 'Delhi',
+    flatAmount: 2.25,
+    period: 'half-yearly',
+    deductionMonths: [6, 12],
+    source: 'Bombay Labour Welfare Fund Act, 1953 (as extended to Delhi) + Delhi Labour Welfare Fund Rules, 1997; https://dlwb.delhi.gov.in/',
+    effectiveFrom: '1997-01-01',
+    ...IN_LWF_UNREVIEWED,
+    notes: [
+      'Employer share = 3× employee share per the Delhi Rules.',
+      'Periods close 30-Jun and 31-Dec; remittance due by 15-Jul and 15-Jan respectively.',
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
 // India — TDS on salary (Section 192) slabs. The new regime is the default
 // from FY 2023-24 onwards (Finance Act 2023). FY 2024-25 slabs apply for
 // salary credited 01-Apr-2024 onwards. Health & Education Cess 4% on tax,
@@ -604,6 +1087,7 @@ const US_RATES: StatutoryRate[] = [
 export const STATUTORY_RATES: StatutoryRate[] = [
   ...IN_PF_ESI,
   ...IN_PT,
+  ...IN_LWF,
   ...IN_INCOME_TAX,
   ...AU_RATES,
   ...US_RATES,

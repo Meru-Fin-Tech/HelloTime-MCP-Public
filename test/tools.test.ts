@@ -243,6 +243,188 @@ test('statutory_rates count breakdown (verifiedCount + unreviewedCount = count)'
   assert.ok(r.verifiedCount >= 12, `expected >=12 verified entries, got ${r.verifiedCount}`);
 });
 
+// ---------------------------------------------------------------------------
+// Labour Welfare Fund (LWF) — covers the 11 states added in PR #11.
+// ---------------------------------------------------------------------------
+
+test('statutory_rates LWF returns 11 distinct states (Kerala counted once)', () => {
+  const r = statutoryRates({ country: 'IN', scheme: 'LWF' });
+  const states = new Set(r.rates.map((x) => x.state));
+  // 11 states: MH, KA, TN, TS, AP, GJ, WB, KL, PB, HR, DL
+  assert.equal(states.size, 11, `expected 11 LWF states, got ${[...states].join(', ')}`);
+  for (const s of [
+    'Maharashtra', 'Karnataka', 'Tamil Nadu', 'Telangana', 'Andhra Pradesh',
+    'Gujarat', 'West Bengal', 'Kerala', 'Punjab', 'Haryana', 'Delhi',
+  ]) {
+    assert.ok(states.has(s), `expected LWF entry for ${s}`);
+  }
+});
+
+test('statutory_rates LWF every entry has both employee + employer parties and a period', () => {
+  const r = statutoryRates({ country: 'IN', scheme: 'LWF' });
+  // Group by state to confirm each has at least one employee + one employer.
+  const byState: Record<string, Set<string>> = {};
+  for (const x of r.rates) {
+    assert.equal(x.scheme, 'LWF');
+    assert.equal(x.category, 'labour-welfare-fund');
+    assert.equal(x.rateType, 'flat-period');
+    assert.ok(x.flatAmount !== undefined, `${x.id} missing flatAmount`);
+    assert.ok(x.period, `${x.id} missing period`);
+    assert.ok(['monthly', 'half-yearly', 'yearly'].includes(x.period!), `${x.id} period ${x.period} not in enum`);
+    const st = x.state!;
+    byState[st] = byState[st] ?? new Set();
+    byState[st]!.add(x.party);
+  }
+  for (const [state, parties] of Object.entries(byState)) {
+    assert.ok(parties.has('employee'), `${state} missing employee entry`);
+    assert.ok(parties.has('employer'), `${state} missing employer entry`);
+  }
+});
+
+test('statutory_rates LWF Maharashtra: ₹25 employee / ₹75 employer half-yearly (Jun + Dec)', () => {
+  const emp = statutoryRates({ id: 'in-lwf-maharashtra-employee' }).rates[0]!;
+  const er = statutoryRates({ id: 'in-lwf-maharashtra-employer' }).rates[0]!;
+  assert.equal(emp.flatAmount, 25);
+  assert.equal(er.flatAmount, 75);
+  assert.equal(emp.period, 'half-yearly');
+  assert.equal(er.period, 'half-yearly');
+  assert.deepEqual(emp.deductionMonths, [6, 12]);
+  assert.deepEqual(er.deductionMonths, [6, 12]);
+  assert.equal(emp.verification, 'verified');
+  assert.equal(emp.effectiveFrom, '2024-03-18');
+});
+
+test('statutory_rates LWF Karnataka: ₹50 / ₹100 yearly (Dec close), verified post-2024 amendment', () => {
+  const emp = statutoryRates({ id: 'in-lwf-karnataka-employee' }).rates[0]!;
+  const er = statutoryRates({ id: 'in-lwf-karnataka-employer' }).rates[0]!;
+  assert.equal(emp.flatAmount, 50);
+  assert.equal(er.flatAmount, 100);
+  assert.equal(emp.period, 'yearly');
+  assert.equal(er.period, 'yearly');
+  assert.deepEqual(emp.deductionMonths, [12]);
+  assert.equal(emp.verification, 'verified');
+  assert.equal(emp.effectiveFrom, '2025-01-10');
+});
+
+test('statutory_rates LWF Tamil Nadu is annual (Dec close), NOT half-yearly', () => {
+  const emp = statutoryRates({ id: 'in-lwf-tamil-nadu-employee' }).rates[0]!;
+  assert.equal(emp.flatAmount, 20);
+  assert.equal(emp.period, 'yearly');
+  assert.deepEqual(emp.deductionMonths, [12]);
+  // Cross-state framing varies — record an unreviewed status pending direct gazette check.
+  assert.equal(emp.verification, 'public-source-unreviewed');
+});
+
+test('statutory_rates LWF Telangana: ₹2 / ₹5 yearly, unrevised since 1987 Act', () => {
+  const emp = statutoryRates({ id: 'in-lwf-telangana-employee' }).rates[0]!;
+  const er = statutoryRates({ id: 'in-lwf-telangana-employer' }).rates[0]!;
+  assert.equal(emp.flatAmount, 2);
+  assert.equal(er.flatAmount, 5);
+  assert.equal(emp.period, 'yearly');
+  assert.equal(emp.effectiveFrom, '1987-01-01');
+  assert.equal(emp.verification, 'verified');
+});
+
+test('statutory_rates LWF Andhra Pradesh: ₹30 / ₹70 yearly (Dec close)', () => {
+  const emp = statutoryRates({ id: 'in-lwf-andhra-pradesh-employee' }).rates[0]!;
+  const er = statutoryRates({ id: 'in-lwf-andhra-pradesh-employer' }).rates[0]!;
+  assert.equal(emp.flatAmount, 30);
+  assert.equal(er.flatAmount, 70);
+  assert.equal(emp.period, 'yearly');
+});
+
+test('statutory_rates LWF Gujarat is half-yearly (NOT monthly): ₹6 / ₹12', () => {
+  const emp = statutoryRates({ id: 'in-lwf-gujarat-employee' }).rates[0]!;
+  const er = statutoryRates({ id: 'in-lwf-gujarat-employer' }).rates[0]!;
+  assert.equal(emp.flatAmount, 6);
+  assert.equal(er.flatAmount, 12);
+  assert.equal(emp.period, 'half-yearly');
+  assert.deepEqual(emp.deductionMonths, [6, 12]);
+  // Common payroll guides mislabel Gujarat as monthly — the Act prescribes half-yearly.
+  assert.match(emp.notes?.join(' ') ?? '', /half-yearly/i);
+});
+
+test('statutory_rates LWF West Bengal: ₹3 / ₹30 half-yearly (employer share doubled in 2024)', () => {
+  const emp = statutoryRates({ id: 'in-lwf-west-bengal-employee' }).rates[0]!;
+  const er = statutoryRates({ id: 'in-lwf-west-bengal-employer' }).rates[0]!;
+  assert.equal(emp.flatAmount, 3);
+  assert.equal(er.flatAmount, 30);
+  assert.equal(emp.period, 'half-yearly');
+  assert.equal(emp.verification, 'verified');
+  assert.equal(emp.effectiveFrom, '2024-01-01');
+});
+
+test('statutory_rates LWF Kerala has TWO regimes (factories half-yearly, shops monthly)', () => {
+  const r = statutoryRates({ state: 'Kerala', scheme: 'LWF' });
+  // Two regimes × (employee + employer) = 4 entries
+  assert.equal(r.rates.length, 4);
+  const factoriesEmp = r.rates.find((x) => x.id === 'in-lwf-kerala-factories-employee')!;
+  const shopsEmp = r.rates.find((x) => x.id === 'in-lwf-kerala-shops-employee')!;
+  assert.equal(factoriesEmp.flatAmount, 4);
+  assert.equal(factoriesEmp.period, 'half-yearly');
+  assert.equal(shopsEmp.flatAmount, 50);
+  assert.equal(shopsEmp.period, 'monthly');
+});
+
+test('statutory_rates LWF Punjab: ₹5 / ₹20 monthly (flat, not wage-percentage)', () => {
+  const emp = statutoryRates({ id: 'in-lwf-punjab-employee' }).rates[0]!;
+  const er = statutoryRates({ id: 'in-lwf-punjab-employer' }).rates[0]!;
+  assert.equal(emp.flatAmount, 5);
+  assert.equal(er.flatAmount, 20);
+  assert.equal(emp.period, 'monthly');
+});
+
+test('statutory_rates LWF Haryana: ₹34 / ₹68 monthly cap (Jan 2025 revision)', () => {
+  const emp = statutoryRates({ id: 'in-lwf-haryana-employee' }).rates[0]!;
+  const er = statutoryRates({ id: 'in-lwf-haryana-employer' }).rates[0]!;
+  assert.equal(emp.flatAmount, 34);
+  assert.equal(er.flatAmount, 68);
+  assert.equal(emp.period, 'monthly');
+  assert.equal(emp.verification, 'verified');
+  assert.equal(emp.effectiveFrom, '2025-01-01');
+  // appliedTo describes the wage-linked formula behind the cap.
+  assert.match(emp.appliedTo, /0\.2%/);
+});
+
+test('statutory_rates LWF Delhi: ₹0.75 / ₹2.25 half-yearly (nominal 1997-era rates)', () => {
+  const emp = statutoryRates({ id: 'in-lwf-delhi-employee' }).rates[0]!;
+  const er = statutoryRates({ id: 'in-lwf-delhi-employer' }).rates[0]!;
+  assert.equal(emp.flatAmount, 0.75);
+  assert.equal(er.flatAmount, 2.25);
+  assert.equal(emp.period, 'half-yearly');
+});
+
+test('statutory_rates category=labour-welfare-fund returns only LWF entries', () => {
+  const r = statutoryRates({ category: 'labour-welfare-fund' });
+  assert.ok(r.count >= 22, `expected at least 22 LWF entries (11 states × 2 + Kerala extra regime), got ${r.count}`);
+  for (const x of r.rates) {
+    assert.equal(x.scheme, 'LWF');
+    assert.equal(x.category, 'labour-welfare-fund');
+    assert.equal(x.country, 'IN');
+  }
+});
+
+test('statutory_rates state=Maharashtra returns BOTH the PT and LWF entries', () => {
+  const r = statutoryRates({ state: 'Maharashtra' });
+  const schemes = new Set(r.rates.map((x) => x.scheme));
+  assert.ok(schemes.has('PT'), 'expected Maharashtra PT entry');
+  assert.ok(schemes.has('LWF'), 'expected Maharashtra LWF entries');
+});
+
+test('feature_search "LWF Maharashtra" surfaces the Maharashtra LWF entry', () => {
+  const r = featureSearch({ query: 'LWF Maharashtra' });
+  const hit = r.results.find((h) => h.source === 'statutory-rate' && h.id.startsWith('in-lwf-maharashtra'));
+  assert.ok(hit, 'expected a Maharashtra LWF hit');
+  // Description should embed the half-yearly amount.
+  assert.match(hit.description, /INR (25|75)\/half-yearly/);
+});
+
+test('feature_search "labour welfare fund" routes to LWF entries (not PF/ESI)', () => {
+  const r = featureSearch({ query: 'labour welfare fund' });
+  const lwfHits = r.results.filter((h) => h.source === 'statutory-rate' && h.id.startsWith('in-lwf-'));
+  assert.ok(lwfHits.length > 0, 'expected at least one LWF hit');
+});
+
 test('feature_search "PF rate" surfaces the EPF statutory rate entry', () => {
   const r = featureSearch({ query: 'PF rate' });
   const hit = r.results.find((h) => h.source === 'statutory-rate' && h.id === 'in-pf-employee');
