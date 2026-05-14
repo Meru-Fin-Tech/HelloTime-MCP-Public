@@ -3,7 +3,7 @@
   "name": "io.github.meru-fin-tech/hellotime-public",
   "title": "HelloTime (Public)",
   "description": "Read-only knowledge endpoint for HelloTime time-tracking/attendance/payroll SaaS. Exposes plan pricing, feature catalog (shifts, rosters, leave, timesheets, GPS, biometric kiosk), per-country support, and payroll capabilities.",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "repository": {
     "url": "https://github.com/Meru-Fin-Tech/HelloTime-MCP-Public",
     "source": "github"
