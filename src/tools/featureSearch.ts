@@ -2,10 +2,11 @@ import { z } from 'zod';
 import { PLANS } from '../data/plans.js';
 import { FEATURES } from '../data/features.js';
 import { COUNTRY_SUPPORT } from '../data/countries.js';
+import { STATUTORY_RATES } from '../data/statutoryRates.js';
 
 export const featureSearchSchema = {
   query: z.string().min(2).max(120)
-    .describe('Free-text query, e.g. "geofence clock-in" or "PF ESI" or "screenshots".'),
+    .describe('Free-text query, e.g. "geofence clock-in", "PF rate", "ESI threshold", "PT slab Maharashtra".'),
   limit: z.number().int().min(1).max(50).optional()
     .describe('Max results to return (default 20).'),
 };
@@ -16,7 +17,7 @@ export interface FeatureSearchArgs {
 }
 
 export interface FeatureSearchHit {
-  source: 'plan' | 'feature' | 'country-feature' | 'payroll-engine';
+  source: 'plan' | 'feature' | 'country-feature' | 'payroll-engine' | 'statutory-rate';
   id: string;
   label: string;
   description: string;
@@ -104,6 +105,41 @@ export function featureSearch(args: FeatureSearchArgs) {
           score: s,
         });
       }
+    }
+  }
+
+  // Statutory rate matching: scheme + label + state + notes form the haystack.
+  // "PF rate", "ESI threshold", "PT slab Maharashtra", "Super Guarantee" all
+  // route to the right entry. Per-scheme matches get a small boost so a query
+  // like "PF" prefers the rate entry over a tangentially-mentioning feature.
+  for (const r of STATUTORY_RATES) {
+    const blob = `${r.scheme} ${r.label} ${r.state ?? ''} ${r.notes?.join(' ') ?? ''}`;
+    const s = score(blob, terms);
+    if (s > 0) {
+      // Build a compact description string suitable for an LLM context window.
+      let valueText = '';
+      if (r.rateType === 'percentage' && r.rate !== undefined) {
+        valueText = `${(r.rate * 100).toFixed(2).replace(/\.00$/, '')}%`;
+      } else if (r.rateType === 'flat-monthly' && r.flatAmount !== undefined) {
+        valueText = `${r.currency} ${r.flatAmount.toLocaleString('en-US')}`;
+      } else if (r.rateType === 'slab') {
+        valueText = `${r.slabs?.length ?? 0} slabs`;
+      }
+      const ceilingNote = r.wageCeiling
+        ? ` · ceiling ${r.currency} ${r.wageCeiling.toLocaleString('en-US')}`
+        : '';
+      const applicabilityNote = r.applicableIfGrossLte
+        ? ` · applies if gross ≤ ${r.currency} ${r.applicableIfGrossLte.toLocaleString('en-US')}`
+        : '';
+      hits.push({
+        source: 'statutory-rate',
+        id: r.id,
+        label: r.label,
+        description: `${valueText} on ${r.appliedTo}${ceilingNote}${applicabilityNote} · ${r.authority} (${r.verification})`,
+        context: r.country,
+        url: r.source.startsWith('http') ? r.source : undefined,
+        score: s + 2,
+      });
     }
   }
 

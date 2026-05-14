@@ -14,10 +14,11 @@ import { listFeatures, listFeaturesSchema } from './tools/listFeatures.js';
 import { countrySupport, countrySupportSchema } from './tools/countrySupport.js';
 import { payrollCapabilities, payrollCapabilitiesSchema } from './tools/payrollCapabilities.js';
 import { featureSearch, featureSearchSchema } from './tools/featureSearch.js';
+import { statutoryRates, statutoryRatesSchema } from './tools/statutoryRates.js';
 import { RESOURCES, readResource } from './resources/index.js';
 
 const SERVER_NAME = 'hellotime-public';
-const SERVER_VERSION = '0.1.2';
+const SERVER_VERSION = '0.2.1';
 
 function asJsonContent(payload: unknown) {
   return {
@@ -69,9 +70,16 @@ export function createServer(): McpServer {
 
   server.tool(
     'feature_search',
-    'Free-text search across plan features, product features, country features, and payroll engines.',
+    'Free-text search across plan features, product features, country features, payroll engines, and statutory rates. Queries like "PF rate", "ESI threshold", or "PT slab Maharashtra" surface the matching statutory rate entry near the top.',
     featureSearchSchema,
     async (args) => asJsonContent(featureSearch(args)),
+  );
+
+  server.tool(
+    'statutory_rates',
+    'Return statutory payroll-rate entries with rate, ceiling, slab, authority, and verification status. India block (PF / EPS / EDLI / PF admin / ESI / Professional Tax by state / TDS slabs) is internally-reviewed against EPFO / ESIC / state notifications. Australia and US entries are public-source-unreviewed. Filter by country, scheme, category, state, party, verification, or id.',
+    statutoryRatesSchema,
+    async (args) => asJsonContent(statutoryRates(args)),
   );
 
   // Resources
@@ -88,5 +96,5 @@ export function createServer(): McpServer {
 }
 
 // Re-exports useful for tests
-export { listPlans, listFeatures, countrySupport, payrollCapabilities, featureSearch };
+export { listPlans, listFeatures, countrySupport, payrollCapabilities, featureSearch, statutoryRates };
 export const _internal = { z };

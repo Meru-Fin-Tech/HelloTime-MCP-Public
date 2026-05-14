@@ -31,7 +31,8 @@ claude mcp add hellotime-local node /path/to/HelloTime-MCP-Public/dist/stdio.js
 | `list_features` | HelloTime features across 14 categories: shifts, rosters, leave, timesheets, time tracking, productivity, GPS / geofence, biometric kiosk, payroll, invoicing, analytics, projects, reports, integrations. Optional `category` and `plan` filters. |
 | `country_support` | Per-country feature availability and product positioning across IN, AU, GB, US, CA, AE, SG, NZ. |
 | `payroll_capabilities` | For a given country, the supported payroll engines with status. AU STP2 + super, IN PF/ESI/TDS/Form 24Q, US W-2/1099, UK RTI, etc. |
-| `feature_search` | Free-text search across plan features, product features, country features, and payroll engines. |
+| `statutory_rates` | Statutory payroll-rate entries with rate, ceiling, slab, authority and verification status. IN block (PF / EPS / EDLI / PF admin / ESI / Professional Tax across 7 states / TDS slabs) is internally-reviewed against EPFO / ESIC / state notifications. AU and US entries are public-source-unreviewed. Optional `country`, `scheme`, `category`, `state`, `party`, `verification`, and `id` filters. |
+| `feature_search` | Free-text search across plan features, product features, country features, payroll engines, and statutory rates. Queries like `PF rate` or `PT slab Maharashtra` surface the matching statutory rate entry near the top. |
 
 ## Resources
 
