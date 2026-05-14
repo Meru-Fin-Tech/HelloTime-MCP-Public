@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.meru-fin-tech/hellotime-public",
   "title": "HelloTime (Public)",
-  "description": "Read-only knowledge endpoint for HelloTime time-tracking/attendance/payroll SaaS. Exposes plan pricing, feature catalog (shifts, rosters, leave, timesheets, GPS, biometric kiosk), per-country support, and payroll capabilities.",
-  "version": "0.2.0",
+  "description": "Read-only knowledge endpoint for HelloTime time-tracking/attendance/payroll SaaS. Exposes plan pricing, feature catalog (shifts, rosters, leave, timesheets, GPS, biometric kiosk), per-country support, payroll capabilities, statutory payroll rates (IN PF/ESI/PT/TDS verified, AU/US public-source), and competitor positioning (Truein, Deputy, When I Work, Connecteam, Hubstaff, Keka).",
+  "version": "0.2.2",
   "repository": {
     "url": "https://github.com/Meru-Fin-Tech/HelloTime-MCP-Public",
     "source": "github"

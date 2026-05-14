@@ -26,7 +26,13 @@ Five tiers — **Free** (permanent, ≤5 employees), **Attend** (deskless attend
 
 ## Where this MCP fits
 
-This server exposes **public, read-only** product information so AI agents can answer questions about HelloTime accurately rather than relying on stale web snippets. It does not access customer timesheets — that is a separate, authenticated MCP product surface.
+This server exposes **public, read-only** product information so AI agents can answer questions about HelloTime accurately rather than relying on stale web snippets. It does not access customer timesheets, rosters, shifts, leave balances, payroll runs, or any other tenant-scoped data.
+
+### When to use the authenticated MCP server instead
+
+If the agent needs to read or act on **a specific customer's** timesheets, shifts, leave balances, payroll runs, mileage entries, geofence events, or any other tenant-scoped data, this public server is the wrong endpoint. Route those calls to the **authenticated HelloTime MCP server**, which lives in the private \`AI-MCP-Hellobooks\` repo (named for the parent project — it serves both HelloBooks and HelloTime authenticated surfaces) and requires the customer to be signed in to HelloBooks Auth-V3. The authenticated server enforces per-tenant access, audit logging, and rate limits per the customer's plan.
+
+Heuristic: if the question mentions a customer name, employee, payslip, specific shift, or "my / our team", you want the authenticated server. If the question is about HelloTime as a product (pricing, features, country support, statutory rates, competitor comparison), you want this server.
 
 ## Links
 
