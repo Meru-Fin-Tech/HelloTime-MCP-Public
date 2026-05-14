@@ -10,6 +10,12 @@
  *   - State PT notifications (Maharashtra, Karnataka, West Bengal, Tamil
  *     Nadu / GCC, Gujarat, Telangana, Andhra Pradesh)
  *
+ * The IN income-tax sub-block (Section 192 TDS slabs + old-regime deduction
+ * caps) was added in a separate CA-review pass on 2026-05-14, reconciled
+ * against the Income-Tax Department portal and the Income-Tax Act, 1961 as
+ * amended by Finance Act 2025. See the comment block above
+ * `IN_INCOME_TAX` for the verification sources.
+ *
  * AU and US blocks are sourced from public government pages but have NOT
  * been through the same internal review pass as the IN block — they ship
  * with `verification: 'public-source-unreviewed'`. The audit field is
@@ -342,22 +348,75 @@ const IN_PT: StatutoryRate[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// India — TDS on salary (Section 192) slabs. The new regime is the default
-// from FY 2023-24 onwards (Finance Act 2023). FY 2024-25 slabs apply for
-// salary credited 01-Apr-2024 onwards. Health & Education Cess 4% on tax,
-// surcharge applies above ₹50 lakh.
+// India — TDS on salary (Section 192) slabs and old-regime deduction caps.
 //
-// Marked public-source-unreviewed because TDS slabs rotate annually with
-// the Finance Act and have not been through the internal review pass that
-// produced the PF/ESI calculator.
+// The new regime is the default from FY 2023-24 onwards (Finance Act 2023).
+// Finance Act 2025 substantially restructured the new-regime slabs and the
+// §87A rebate for FY 2025-26 (AY 2026-27): bands re-grid from 3-7-10-12-15+L
+// to 4-8-12-16-20-24+L, a 25% bracket inserts between 20% and 30%, and the
+// §87A rebate ceiling lifts from ₹7L to ₹12L (max rebate ₹60,000). The old
+// regime slabs are unchanged since FY 2017-18.
+//
+// Verified 2026-05-14 against:
+//   - incometax.gov.in /iec/foportal/help/individual/return-applicable-1
+//     (Income-Tax Department salaried-individuals AY 2026-27 page)
+//   - Income-Tax Act, 1961 §115BAC as amended by Finance Act 2025
+//   - cleartax.in/s/marginal-relief-surcharge (surcharge brackets reconciled)
+//   - cleartax.in/s/80c-80-deductions, /s/section-80ccd, /s/section-80d,
+//     /s/section-80ttb (old-regime deduction caps reconciled against current
+//     Income-Tax Act sections)
+//
+// Both FY 2024-25 and FY 2025-26 entries are retained because employers still
+// reconcile previous-year TDS and AS-26 statements during the assessment
+// year that follows. AY 2026-27 (= FY 2025-26 income) is the current
+// withholding year as of this review pass.
 // ---------------------------------------------------------------------------
 
+const IN_TAX_VERIFIED = {
+  verification: 'verified' as const,
+  lastReviewed: '2026-05-14',
+  currency: 'INR' as const,
+};
+
 const IN_INCOME_TAX: StatutoryRate[] = [
+  // -- TDS on salary -------------------------------------------------------
+  {
+    id: 'in-tds-new-regime-fy2526',
+    country: 'IN',
+    scheme: 'TDS',
+    label: 'TDS on salary — new regime (Section 115BAC) FY 2025-26',
+    category: 'income-tax',
+    party: 'employee',
+    rateType: 'slab',
+    slabs: [
+      { upTo: 400000, rate: 0 },
+      { upTo: 800000, rate: 0.05 },
+      { upTo: 1200000, rate: 0.10 },
+      { upTo: 1600000, rate: 0.15 },
+      { upTo: 2000000, rate: 0.20 },
+      { upTo: 2400000, rate: 0.25 },
+      { upTo: null, rate: 0.30 },
+    ],
+    appliedTo: 'Annual taxable salary income, default regime (AY 2026-27)',
+    authority: 'CBDT',
+    source: 'Income-Tax Act, 1961 §115BAC as amended by Finance Act 2025',
+    effectiveFrom: '2025-04-01',
+    ...IN_TAX_VERIFIED,
+    notes: [
+      'Default regime — employee must explicitly opt out (Form 10-IEA) to use the old regime.',
+      'Standard deduction ₹75,000 available against salary income.',
+      'Section 87A rebate of up to ₹60,000 makes net tax zero on taxable income up to ₹12,00,000 (effective ₹12,75,000 with standard deduction).',
+      'Marginal relief applies just above ₹12,00,000 so that the tax payable does not exceed the income in excess of ₹12,00,000.',
+      'Add Health & Education Cess @ 4% on (tax + surcharge).',
+      'Surcharge: nil up to ₹50L; 10% (₹50L–1Cr); 15% (₹1Cr–2Cr); 25% (₹2Cr–5Cr); 25% above ₹5Cr — new regime caps at 25% (vs 37% in old regime).',
+      'Most chapter VI-A deductions (80C, 80D, 80TTA, HRA, LTA, etc.) are NOT available under the new regime.',
+    ],
+  },
   {
     id: 'in-tds-new-regime-fy2425',
     country: 'IN',
     scheme: 'TDS',
-    label: 'TDS on salary — new regime (Section 115BAC) FY 2024-25',
+    label: 'TDS on salary — new regime (Section 115BAC) FY 2024-25 (historical)',
     category: 'income-tax',
     party: 'employee',
     rateType: 'slab',
@@ -369,24 +428,23 @@ const IN_INCOME_TAX: StatutoryRate[] = [
       { upTo: 1500000, rate: 0.20 },
       { upTo: null, rate: 0.30 },
     ],
-    appliedTo: 'Annual taxable salary income, default regime',
-    currency: 'INR',
+    appliedTo: 'Annual taxable salary income, default regime (AY 2025-26)',
     authority: 'CBDT',
-    source: 'Finance Act 2024 (Section 115BAC of Income-Tax Act, 1961)',
+    source: 'Income-Tax Act, 1961 §115BAC as amended by Finance (No.2) Act 2024',
     effectiveFrom: '2024-04-01',
-    verification: 'public-source-unreviewed',
-    lastReviewed: '2026-05-14',
+    ...IN_TAX_VERIFIED,
     notes: [
-      'Standard deduction ₹75,000 available under new regime (FY 2024-25 onwards).',
-      'Section 87A rebate makes net tax zero on income up to ₹7,00,000 (effective ₹7,75,000 with standard deduction).',
-      'Add Health & Education Cess @ 4% on tax. Surcharge applies above ₹50 lakh.',
+      'Historical FY 2024-25 slabs — retained for AY 2025-26 reconciliation and Form 24Q Q4 / Form 16 issuance.',
+      'Standard deduction ₹75,000 (raised from ₹50,000 by Finance (No.2) Act 2024).',
+      'Section 87A rebate ceiling was ₹7,00,000 (effective ₹7,75,000 with standard deduction); max rebate ₹25,000.',
+      'Add Health & Education Cess @ 4% on (tax + surcharge). Surcharge brackets same as FY 2025-26 with new-regime cap at 25%.',
     ],
   },
   {
-    id: 'in-tds-old-regime-fy2425',
+    id: 'in-tds-old-regime-fy2526',
     country: 'IN',
     scheme: 'TDS',
-    label: 'TDS on salary — old regime FY 2024-25 (individuals < 60)',
+    label: 'TDS on salary — old regime FY 2025-26 (individuals < 60)',
     category: 'income-tax',
     party: 'employee',
     rateType: 'slab',
@@ -396,18 +454,272 @@ const IN_INCOME_TAX: StatutoryRate[] = [
       { upTo: 1000000, rate: 0.20 },
       { upTo: null, rate: 0.30 },
     ],
-    appliedTo: 'Annual taxable salary income, opt-in old regime',
-    currency: 'INR',
+    appliedTo: 'Annual taxable salary income, opt-in old regime (AY 2026-27)',
     authority: 'CBDT',
-    source: 'Income-Tax Act, 1961',
+    source: 'Income-Tax Act, 1961 (slabs unchanged since FY 2017-18)',
     effectiveFrom: '2017-04-01',
-    verification: 'public-source-unreviewed',
-    lastReviewed: '2026-05-14',
+    ...IN_TAX_VERIFIED,
     notes: [
-      'Employee must opt in to the old regime via Form 10-IEA each year.',
-      'Separate slabs apply for senior citizens (60–80) and super-senior citizens (80+).',
-      'Standard deduction ₹50,000 plus eligible 80C/80D/HRA deductions.',
-      'Add Health & Education Cess @ 4% on tax. Surcharge applies above ₹50 lakh.',
+      'Employee must opt in to the old regime via Form 10-IEA each year (employees who already had business income on file may have a one-time opt-out).',
+      'Senior citizens (60–80) basic-exemption raised to ₹3,00,000; super-senior (80+) to ₹5,00,000.',
+      'Standard deduction ₹50,000 plus eligible chapter VI-A deductions (80C ₹1.5L, 80CCD(1B) ₹50k, 80D, 80TTA, HRA, home-loan interest, etc.) — see id values starting with "in-deduction-".',
+      'Section 87A rebate of ₹12,500 on net tax for taxable income up to ₹5,00,000.',
+      'Add Health & Education Cess @ 4% on (tax + surcharge).',
+      'Surcharge: nil up to ₹50L; 10% (₹50L–1Cr); 15% (₹1Cr–2Cr); 25% (₹2Cr–5Cr); 37% above ₹5Cr.',
+    ],
+  },
+  {
+    id: 'in-tds-old-regime-fy2425',
+    country: 'IN',
+    scheme: 'TDS',
+    label: 'TDS on salary — old regime FY 2024-25 (individuals < 60, historical)',
+    category: 'income-tax',
+    party: 'employee',
+    rateType: 'slab',
+    slabs: [
+      { upTo: 250000, rate: 0 },
+      { upTo: 500000, rate: 0.05 },
+      { upTo: 1000000, rate: 0.20 },
+      { upTo: null, rate: 0.30 },
+    ],
+    appliedTo: 'Annual taxable salary income, opt-in old regime (AY 2025-26)',
+    authority: 'CBDT',
+    source: 'Income-Tax Act, 1961 (slabs unchanged since FY 2017-18)',
+    effectiveFrom: '2017-04-01',
+    ...IN_TAX_VERIFIED,
+    notes: [
+      'Historical FY 2024-25 entry — slab values are identical to FY 2025-26 because the old regime has not been re-rated since FY 2017-18. Retained for AY 2025-26 Form 24Q Q4 / Form 16 reconciliation.',
+      'Section 87A rebate ₹12,500 for taxable income up to ₹5,00,000.',
+      'Standard deduction ₹50,000 plus eligible chapter VI-A deductions.',
+    ],
+  },
+
+  // -- Old-regime deduction caps (Chapter VI-A + standard deduction) -------
+  //
+  // Modelled as 'flat-monthly' entries because that's the existing
+  // schema-supported way to expose an annual currency cap (same pattern
+  // used by the US 401(k) elective-deferral entry). The `appliedTo` field
+  // documents that the figure is an ANNUAL cap, not a per-period amount.
+  //
+  // All limits are old-regime unless noted; the new regime denies almost
+  // every chapter VI-A deduction.
+  {
+    id: 'in-std-deduction-new-regime',
+    country: 'IN',
+    scheme: 'StandardDeduction',
+    label: 'Standard deduction from salary — new regime',
+    category: 'income-tax',
+    party: 'employee',
+    rateType: 'flat-monthly',
+    flatAmount: 75000,
+    appliedTo: 'Annual cap on standard deduction from salary income (not per period)',
+    authority: 'CBDT',
+    source: 'Income-Tax Act, 1961 §16(ia) as amended by Finance (No.2) Act 2024',
+    effectiveFrom: '2024-04-01',
+    ...IN_TAX_VERIFIED,
+    notes: [
+      'Raised from ₹50,000 to ₹75,000 by Finance (No.2) Act 2024 for new-regime taxpayers; the same Act left old-regime standard deduction at ₹50,000.',
+      'Family pension recipients get a separate standard deduction (₹25,000 under new regime, ₹15,000 under old) — not modelled here.',
+    ],
+  },
+  {
+    id: 'in-std-deduction-old-regime',
+    country: 'IN',
+    scheme: 'StandardDeduction',
+    label: 'Standard deduction from salary — old regime',
+    category: 'income-tax',
+    party: 'employee',
+    rateType: 'flat-monthly',
+    flatAmount: 50000,
+    appliedTo: 'Annual cap on standard deduction from salary income (not per period)',
+    authority: 'CBDT',
+    source: 'Income-Tax Act, 1961 §16(ia)',
+    effectiveFrom: '2019-04-01',
+    ...IN_TAX_VERIFIED,
+    notes: [
+      'Reinstated and set at ₹40,000 by Finance Act 2018, raised to ₹50,000 by Finance Act 2019. Old-regime figure not revised since FY 2019-20.',
+    ],
+  },
+  {
+    id: 'in-deduction-80c',
+    country: 'IN',
+    scheme: '80C',
+    label: 'Section 80C — combined deduction cap (PF, PPF, ELSS, LIC, principal etc.)',
+    category: 'income-tax',
+    party: 'employee',
+    rateType: 'flat-monthly',
+    flatAmount: 150000,
+    appliedTo: 'Annual combined cap across 80C/80CCC/80CCD(1) instruments (not per period)',
+    authority: 'CBDT',
+    source: 'Income-Tax Act, 1961 §80C, §80CCE (overall ceiling)',
+    effectiveFrom: '2014-04-01',
+    ...IN_TAX_VERIFIED,
+    notes: [
+      'Old regime only — disallowed under new regime (§115BAC).',
+      '§80CCE caps the AGGREGATE of 80C + 80CCC + 80CCD(1) at ₹1,50,000; 80CCD(1B) sits OUTSIDE this cap and adds ₹50,000.',
+      'Eligible instruments include EPF/VPF, PPF, ELSS, life-insurance premia, ULIPs, NSC, tax-saver FD (5-yr), Sukanya Samriddhi, home-loan principal repayment, tuition fees for up to 2 children, etc.',
+      '₹1,50,000 cap unchanged since Finance (No.2) Act 2014.',
+    ],
+  },
+  {
+    id: 'in-deduction-80ccd-1b',
+    country: 'IN',
+    scheme: '80CCD(1B)',
+    label: 'Section 80CCD(1B) — additional NPS deduction',
+    category: 'income-tax',
+    party: 'employee',
+    rateType: 'flat-monthly',
+    flatAmount: 50000,
+    appliedTo: 'Annual additional cap for NPS Tier-I contributions, over and above §80CCE (not per period)',
+    authority: 'CBDT',
+    source: 'Income-Tax Act, 1961 §80CCD(1B)',
+    effectiveFrom: '2015-04-01',
+    ...IN_TAX_VERIFIED,
+    notes: [
+      'Old regime only — not available under new regime.',
+      'Stacks on top of the ₹1,50,000 §80CCE ceiling, so an NPS-maximising taxpayer can claim ₹2,00,000 in aggregate (₹1.5L under 80C/CCD(1) + ₹50k under 80CCD(1B)).',
+      'Employer NPS contribution under §80CCD(2) is a SEPARATE deduction (capped at 14% of salary for govt employees and new-regime opt-ins from FY 2024-25; 10% otherwise) — not modelled here.',
+    ],
+  },
+  {
+    id: 'in-deduction-80d-self-family',
+    country: 'IN',
+    scheme: '80D',
+    label: 'Section 80D — health insurance, self + family',
+    category: 'income-tax',
+    party: 'employee',
+    rateType: 'flat-monthly',
+    flatAmount: 25000,
+    appliedTo: 'Annual cap on premia for self + spouse + dependent children (not per period)',
+    authority: 'CBDT',
+    source: 'Income-Tax Act, 1961 §80D',
+    effectiveFrom: '2018-04-01',
+    ...IN_TAX_VERIFIED,
+    notes: [
+      'Old regime only.',
+      'Cap rises to ₹50,000 if any of self/spouse is a senior citizen (60+).',
+      'Preventive health check-up sub-limit ₹5,000 sits WITHIN this cap (not on top).',
+      'Combined with parents-bucket (id="in-deduction-80d-parents"), the maximum aggregate 80D deduction is ₹50k + ₹50k = ₹1,00,000 when both buckets are senior-citizen; the common "self <60 + parents 60+" case gives ₹25k + ₹50k = ₹75,000.',
+    ],
+  },
+  {
+    id: 'in-deduction-80d-parents',
+    country: 'IN',
+    scheme: '80D',
+    label: 'Section 80D — health insurance, parents bucket',
+    category: 'income-tax',
+    party: 'employee',
+    rateType: 'flat-monthly',
+    flatAmount: 25000,
+    appliedTo: 'Annual cap on premia paid for parents (not per period)',
+    authority: 'CBDT',
+    source: 'Income-Tax Act, 1961 §80D',
+    effectiveFrom: '2018-04-01',
+    ...IN_TAX_VERIFIED,
+    notes: [
+      'Old regime only. Separate bucket from self+family.',
+      'Cap rises to ₹50,000 if either parent is a senior citizen (60+).',
+      'For uninsured senior-citizen parents, actual medical expenditure is deductible up to ₹50,000 in lieu of premia.',
+    ],
+  },
+  {
+    id: 'in-deduction-80tta',
+    country: 'IN',
+    scheme: '80TTA',
+    label: 'Section 80TTA — savings-account interest',
+    category: 'income-tax',
+    party: 'employee',
+    rateType: 'flat-monthly',
+    flatAmount: 10000,
+    appliedTo: 'Annual cap on interest from savings accounts (not per period)',
+    authority: 'CBDT',
+    source: 'Income-Tax Act, 1961 §80TTA',
+    effectiveFrom: '2013-04-01',
+    ...IN_TAX_VERIFIED,
+    notes: [
+      'Old regime only. Individuals below 60; HUFs eligible.',
+      'Applies to interest from savings accounts with banks, co-op banks and post offices. FD/RD interest is NOT covered here.',
+      'Senior citizens (60+) use §80TTB instead, which is a higher ₹50,000 cap covering both savings and FD/RD interest — see id="in-deduction-80ttb".',
+      'Budget 2025 raised the §194A TDS-on-interest threshold but did NOT change the §80TTA cap.',
+    ],
+  },
+  {
+    id: 'in-deduction-80ttb',
+    country: 'IN',
+    scheme: '80TTB',
+    label: 'Section 80TTB — senior-citizen interest income',
+    category: 'income-tax',
+    party: 'employee',
+    rateType: 'flat-monthly',
+    flatAmount: 50000,
+    appliedTo: 'Annual cap on bank/post-office interest for resident senior citizens (not per period)',
+    authority: 'CBDT',
+    source: 'Income-Tax Act, 1961 §80TTB',
+    effectiveFrom: '2018-04-01',
+    ...IN_TAX_VERIFIED,
+    notes: [
+      'Old regime only. Resident individuals aged 60+; not available to HUFs.',
+      'Covers interest on savings AND fixed/recurring deposits with banks, co-op banks and post offices — broader than §80TTA.',
+      'A senior citizen claiming §80TTB cannot also claim §80TTA on the same income.',
+    ],
+  },
+  {
+    id: 'in-deduction-hra',
+    country: 'IN',
+    scheme: 'HRA',
+    label: 'House Rent Allowance exemption — §10(13A) formula',
+    category: 'income-tax',
+    party: 'employee',
+    rateType: 'percentage',
+    rate: 0.50,
+    appliedTo: 'Minimum of three values; see notes for the formula',
+    authority: 'CBDT',
+    source: 'Income-Tax Act, 1961 §10(13A) read with Rule 2A',
+    effectiveFrom: '1962-04-01',
+    ...IN_TAX_VERIFIED,
+    notes: [
+      'Old regime only — HRA exemption is denied under §115BAC.',
+      'Exempt portion of HRA = MIN of: (a) actual HRA received; (b) 50% of (Basic + DA) if employee lives in a metro city — Delhi / Mumbai / Kolkata / Chennai; OR 40% of (Basic + DA) for non-metro; (c) Rent paid MINUS 10% of (Basic + DA).',
+      'The 50% metro / 40% non-metro multipliers are the two structured rate values — see id="in-deduction-hra-metro-pct" and id="in-deduction-hra-non-metro-pct" for queries that need just the percentage.',
+      'No HRA exemption if no rent is actually paid, even if HRA is part of the CTC.',
+      'Rent paid > ₹1,00,000/year requires the landlord PAN in the employer declaration (CBDT circular 8/2013).',
+    ],
+  },
+  {
+    id: 'in-deduction-hra-metro-pct',
+    country: 'IN',
+    scheme: 'HRA',
+    label: 'HRA exemption — metro multiplier (Delhi / Mumbai / Kolkata / Chennai)',
+    category: 'income-tax',
+    party: 'employee',
+    rateType: 'percentage',
+    rate: 0.50,
+    appliedTo: 'Basic + Dearness Allowance — used in HRA exemption formula limb (b)',
+    authority: 'CBDT',
+    source: 'Income-Tax Rules, 1962 Rule 2A',
+    effectiveFrom: '1962-04-01',
+    ...IN_TAX_VERIFIED,
+    notes: [
+      'For HRA exemption limb (b) when the employee resides in Delhi, Mumbai, Kolkata or Chennai.',
+      'Bengaluru, Hyderabad, Pune, Ahmedabad etc. are NOT metros for §10(13A) (despite being so for many other purposes) — those use the 40% non-metro multiplier.',
+    ],
+  },
+  {
+    id: 'in-deduction-hra-non-metro-pct',
+    country: 'IN',
+    scheme: 'HRA',
+    label: 'HRA exemption — non-metro multiplier',
+    category: 'income-tax',
+    party: 'employee',
+    rateType: 'percentage',
+    rate: 0.40,
+    appliedTo: 'Basic + Dearness Allowance — used in HRA exemption formula limb (b)',
+    authority: 'CBDT',
+    source: 'Income-Tax Rules, 1962 Rule 2A',
+    effectiveFrom: '1962-04-01',
+    ...IN_TAX_VERIFIED,
+    notes: [
+      'Default for every city other than the four §10(13A) metros (Delhi / Mumbai / Kolkata / Chennai).',
     ],
   },
 ];
