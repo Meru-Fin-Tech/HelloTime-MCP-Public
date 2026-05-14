@@ -27,7 +27,7 @@ claude mcp add hellotime-local node /path/to/HelloTime-MCP-Public/dist/stdio.js
 
 | Tool | Description |
 | --- | --- |
-| `list_plans` | All HelloTime plans (Pro, Business, Enterprise) with launch + list prices in 8 currencies, plus volume and annual prepay discount tables. Optional `country` and `plan` filters. |
+| `list_plans` | All HelloTime plans (Free, Attend, Track, Pro, Business) with launch + list prices in 8 currencies, plus volume and annual prepay discount tables. Free is permanent for teams up to 5 employees; paid tiers each include a 7-day free trial. Optional `country` and `plan` filters. |
 | `list_features` | HelloTime features across 14 categories: shifts, rosters, leave, timesheets, time tracking, productivity, GPS / geofence, biometric kiosk, payroll, invoicing, analytics, projects, reports, integrations. Optional `category` and `plan` filters. |
 | `country_support` | Per-country feature availability and product positioning across IN, AU, GB, US, CA, AE, SG, NZ. |
 | `payroll_capabilities` | For a given country, the supported payroll engines with status. AU STP2 + super, IN PF/ESI/TDS/Form 24Q, US W-2/1099, UK RTI, etc. |
