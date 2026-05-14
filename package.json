@@ -1,7 +1,7 @@
 {
   "name": "hellotime-mcp-public",
-  "version": "0.2.2",
-  "description": "Public read-only MCP server exposing HelloTime plans, features, country support, payroll capabilities, statutory rates, and competitor positioning to AI agents.",
+  "version": "0.3.0",
+  "description": "Public read-only MCP server exposing HelloTime plans, features, country support, payroll capabilities, statutory rates, competitor positioning, and local payment methods to AI agents.",
   "license": "MIT",
   "author": "HelloTime <hello@hellotime.app>",
   "homepage": "https://hellotime.ai",
