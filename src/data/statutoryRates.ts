@@ -10,16 +10,17 @@
  *   - State PT notifications (Maharashtra, Karnataka, West Bengal, Tamil
  *     Nadu / GCC, Gujarat, Telangana, Andhra Pradesh)
  *
- * AU and US blocks are sourced from public government pages but have NOT
- * been through the same internal review pass as the IN block — they ship
- * with `verification: 'public-source-unreviewed'`. The audit field is
- * surfaced through the tool response so an AI agent (or its operator) knows
- * which rates are HelloTime-vouched vs. public-source verbatim.
+ * AU, US, GB, CA, SG, NZ and AE blocks are sourced from public government
+ * pages but have NOT been through the same internal review pass as the IN
+ * block — they ship with `verification: 'public-source-unreviewed'`. The
+ * audit field is surfaced through the tool response so an AI agent (or its
+ * operator) knows which rates are HelloTime-vouched vs. public-source
+ * verbatim.
  *
  * Public-only data: no customer references, no internal hostnames, no auth.
  */
 
-export type StatutoryCountry = 'IN' | 'AU' | 'US';
+export type StatutoryCountry = 'IN' | 'AU' | 'US' | 'GB' | 'CA' | 'SG' | 'NZ' | 'AE';
 
 export type StatutoryCategory =
   | 'social-security'
@@ -28,7 +29,8 @@ export type StatutoryCategory =
   | 'professional-tax'
   | 'pension'
   | 'unemployment'
-  | 'state-payroll-tax';
+  | 'state-payroll-tax'
+  | 'end-of-service';
 
 export type RateType = 'percentage' | 'flat-monthly' | 'slab';
 
@@ -598,6 +600,814 @@ const US_RATES: StatutoryRate[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// United Kingdom — public-source-unreviewed. Tax year 2025-26 (06-Apr-2025 to
+// 05-Apr-2026). Headline rates from HMRC; thresholds frozen at FY 2024-25
+// levels per the Autumn Statement 2022 freeze, extended through 2027-28.
+// England, Wales and Northern Ireland income-tax bands; Scotland operates a
+// separate 6-band Scottish income tax via SRIT.
+// ---------------------------------------------------------------------------
+
+const GB_UNREVIEWED = {
+  verification: 'public-source-unreviewed' as const,
+  lastReviewed: '2026-05-14',
+  currency: 'GBP',
+};
+
+const GB_RATES: StatutoryRate[] = [
+  {
+    id: 'gb-ni-class1-employee-2025',
+    country: 'GB',
+    scheme: 'NI-Class1',
+    label: 'National Insurance — Class 1 primary (employee) 2025-26',
+    category: 'social-security',
+    party: 'employee',
+    rateType: 'slab',
+    slabs: [
+      { upTo: 12570, rate: 0, note: 'Below Primary Threshold (£12,570/yr — £242/wk) — no NI.' },
+      { upTo: 50270, rate: 0.08, note: 'Main rate band — Primary Threshold to Upper Earnings Limit.' },
+      { upTo: null, rate: 0.02, note: 'Additional rate band — above Upper Earnings Limit (£50,270/yr).' },
+    ],
+    appliedTo: 'Annual earnings — Primary Threshold £12,570 and Upper Earnings Limit £50,270',
+    authority: 'HMRC',
+    source: 'https://www.gov.uk/national-insurance-rates-letters',
+    effectiveFrom: '2025-04-06',
+    ...GB_UNREVIEWED,
+    notes: [
+      'Main rate stepped down from 10% to 8% on 06-Apr-2024 (Spring Budget 2024); held at 8% for 2025-26.',
+      'Weekly thresholds: Primary Threshold £242/wk, Upper Earnings Limit £967/wk.',
+      'Letters C, S, X and W give reduced or zero rates — confirm employee NI category against HMRC NI tables.',
+    ],
+  },
+  {
+    id: 'gb-ni-class1-employer-2025',
+    country: 'GB',
+    scheme: 'NI-Class1',
+    label: 'National Insurance — Class 1 secondary (employer) 2025-26',
+    category: 'social-security',
+    party: 'employer',
+    rateType: 'percentage',
+    rate: 0.15,
+    appliedTo: 'Earnings above the Secondary Threshold (£5,000/yr from 06-Apr-2025)',
+    authority: 'HMRC',
+    source: 'https://www.gov.uk/national-insurance-rates-letters',
+    effectiveFrom: '2025-04-06',
+    ...GB_UNREVIEWED,
+    notes: [
+      'Autumn Budget 2024: employer NI rose from 13.8% to 15% w.e.f. 06-Apr-2025.',
+      'Secondary Threshold cut from £9,100/yr (2024-25) to £5,000/yr (2025-26) — same Autumn Budget 2024 change.',
+      'Employment Allowance increased to £10,500/yr for eligible employers and £100k cap removed (2025-26).',
+      'Reduced 0% / Veterans / Freeport / Investment Zone employer rates apply up to specific upper bands — confirm against HMRC.',
+    ],
+  },
+  {
+    id: 'gb-paye-income-tax-2025',
+    country: 'GB',
+    scheme: 'PAYE',
+    label: 'PAYE income tax bands — England/Wales/NI 2025-26',
+    category: 'income-tax',
+    party: 'employee',
+    rateType: 'slab',
+    slabs: [
+      { upTo: 12570, rate: 0, note: 'Personal allowance — £12,570 (frozen through 2027-28).' },
+      { upTo: 50270, rate: 0.20, note: 'Basic rate — taxable income £0 to £37,700 above personal allowance.' },
+      { upTo: 125140, rate: 0.40, note: 'Higher rate — up to £125,140; personal allowance tapers £1 per £2 of income above £100,000.' },
+      { upTo: null, rate: 0.45, note: 'Additional rate — above £125,140.' },
+    ],
+    appliedTo: 'Annual taxable income (England, Wales and Northern Ireland)',
+    authority: 'HMRC',
+    source: 'https://www.gov.uk/income-tax-rates',
+    effectiveFrom: '2025-04-06',
+    ...GB_UNREVIEWED,
+    notes: [
+      'Scotland has separate Scottish Income Tax rates (6 bands) operated via SRIT — not modelled here.',
+      'Personal allowance £12,570 frozen at this level through tax year 2027-28 per the Autumn Statement 2022.',
+      'Personal allowance reduces by £1 for every £2 earned above £100,000; fully withdrawn at £125,140.',
+    ],
+  },
+  {
+    id: 'gb-pension-auto-enrol-total',
+    country: 'GB',
+    scheme: 'AutoEnrol',
+    label: 'Workplace pension auto-enrolment — total minimum contribution',
+    category: 'pension',
+    party: 'both',
+    rateType: 'percentage',
+    rate: 0.08,
+    appliedTo: 'Qualifying earnings band (£6,240–£50,270/yr for 2025-26)',
+    authority: 'The Pensions Regulator (TPR)',
+    source: 'https://www.thepensionsregulator.gov.uk/en/employers/managing-a-scheme/contributions-and-funding',
+    effectiveFrom: '2019-04-06',
+    ...GB_UNREVIEWED,
+    notes: [
+      'Minimum split: employer 3% + employee 5% = 8% total on qualifying earnings.',
+      'Qualifying earnings band for 2025-26: lower limit £6,240/yr, upper limit £50,270/yr.',
+      'Auto-enrolment trigger earnings £10,000/yr — workers below this can opt in.',
+      'Many employers contribute more than the 3% minimum; salary-sacrifice arrangements common.',
+    ],
+  },
+  {
+    id: 'gb-pension-auto-enrol-employer',
+    country: 'GB',
+    scheme: 'AutoEnrol',
+    label: 'Workplace pension auto-enrolment — employer minimum',
+    category: 'pension',
+    party: 'employer',
+    rateType: 'percentage',
+    rate: 0.03,
+    appliedTo: 'Qualifying earnings band (£6,240–£50,270/yr for 2025-26)',
+    authority: 'The Pensions Regulator (TPR)',
+    source: 'https://www.thepensionsregulator.gov.uk/en/employers/managing-a-scheme/contributions-and-funding',
+    effectiveFrom: '2019-04-06',
+    ...GB_UNREVIEWED,
+  },
+  {
+    id: 'gb-pension-auto-enrol-employee',
+    country: 'GB',
+    scheme: 'AutoEnrol',
+    label: 'Workplace pension auto-enrolment — employee minimum',
+    category: 'pension',
+    party: 'employee',
+    rateType: 'percentage',
+    rate: 0.05,
+    appliedTo: 'Qualifying earnings band (£6,240–£50,270/yr for 2025-26)',
+    authority: 'The Pensions Regulator (TPR)',
+    source: 'https://www.thepensionsregulator.gov.uk/en/employers/managing-a-scheme/contributions-and-funding',
+    effectiveFrom: '2019-04-06',
+    ...GB_UNREVIEWED,
+    notes: ['Includes basic-rate tax relief if scheme operates relief-at-source (net-pay schemes deduct gross).'],
+  },
+  {
+    id: 'gb-apprenticeship-levy',
+    country: 'GB',
+    scheme: 'ApprenticeshipLevy',
+    label: 'Apprenticeship Levy',
+    category: 'state-payroll-tax',
+    party: 'employer',
+    rateType: 'percentage',
+    rate: 0.005,
+    appliedTo: 'Annual paybill above £3,000,000 (after £15,000 annual allowance)',
+    authority: 'HMRC',
+    source: 'https://www.gov.uk/guidance/pay-apprenticeship-levy',
+    effectiveFrom: '2017-04-06',
+    ...GB_UNREVIEWED,
+    notes: [
+      'Each employer gets a £15,000 annual allowance — effectively levy only bites once annual paybill exceeds £3,000,000.',
+      'Connected employers (group / franchise) must share the single £15,000 allowance.',
+      'Paid via PAYE alongside Class 1 NI; ring-fenced to fund apprenticeship training.',
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Canada — public-source-unreviewed. 2025 federal figures from CRA and
+// Employment and Social Development Canada. Provincial/territorial income tax
+// and provincial workplace insurance (WSIB, WCB, CNESST) vary by province
+// and are NOT modelled here — this block is the federal stub.
+// ---------------------------------------------------------------------------
+
+const CA_UNREVIEWED = {
+  verification: 'public-source-unreviewed' as const,
+  lastReviewed: '2026-05-14',
+  currency: 'CAD',
+};
+
+const CA_RATES: StatutoryRate[] = [
+  {
+    id: 'ca-cpp-employee-2025',
+    country: 'CA',
+    scheme: 'CPP',
+    label: 'Canada Pension Plan — employee (2025)',
+    category: 'pension',
+    party: 'employee',
+    rateType: 'percentage',
+    rate: 0.0595,
+    appliedTo: 'Pensionable earnings above $3,500 basic exemption, up to YMPE $71,300',
+    wageCeiling: 71300,
+    authority: 'Canada Revenue Agency (CRA)',
+    source: 'https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/payroll/payroll-deductions-contributions/canada-pension-plan-cpp/cpp-contribution-rates-maximums-exemptions.html',
+    effectiveFrom: '2025-01-01',
+    ...CA_UNREVIEWED,
+    notes: [
+      'Year\'s Maximum Pensionable Earnings (YMPE) for 2025 = $71,300; Year\'s Basic Exemption (YBE) = $3,500.',
+      'Quebec residents instead contribute to QPP at 6.40% (employee) — different scheme not modelled here.',
+      'Maximum employee CPP1 contribution 2025 ≈ $4,034.10.',
+    ],
+  },
+  {
+    id: 'ca-cpp-employer-2025',
+    country: 'CA',
+    scheme: 'CPP',
+    label: 'Canada Pension Plan — employer (2025)',
+    category: 'pension',
+    party: 'employer',
+    rateType: 'percentage',
+    rate: 0.0595,
+    appliedTo: 'Pensionable earnings above $3,500 basic exemption, up to YMPE $71,300',
+    wageCeiling: 71300,
+    authority: 'Canada Revenue Agency (CRA)',
+    source: 'https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/payroll/payroll-deductions-contributions/canada-pension-plan-cpp/cpp-contribution-rates-maximums-exemptions.html',
+    effectiveFrom: '2025-01-01',
+    ...CA_UNREVIEWED,
+    notes: ['Employer matches employee CPP1 contribution dollar-for-dollar.'],
+  },
+  {
+    id: 'ca-cpp2-employee-2025',
+    country: 'CA',
+    scheme: 'CPP2',
+    label: 'Canada Pension Plan — CPP2 enhanced employee (2025)',
+    category: 'pension',
+    party: 'employee',
+    rateType: 'percentage',
+    rate: 0.04,
+    appliedTo: 'Pensionable earnings between YMPE $71,300 and YAMPE $81,200',
+    wageCeiling: 81200,
+    authority: 'Canada Revenue Agency (CRA)',
+    source: 'https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/payroll/payroll-deductions-contributions/canada-pension-plan-cpp/cpp-contribution-rates-maximums-exemptions.html',
+    effectiveFrom: '2024-01-01',
+    ...CA_UNREVIEWED,
+    notes: [
+      'CPP2 introduced 01-Jan-2024 as the second earnings ceiling under CPP enhancement.',
+      'Year\'s Additional Maximum Pensionable Earnings (YAMPE) for 2025 = $81,200.',
+      'Maximum employee CPP2 contribution 2025 ≈ $396.00.',
+    ],
+  },
+  {
+    id: 'ca-cpp2-employer-2025',
+    country: 'CA',
+    scheme: 'CPP2',
+    label: 'Canada Pension Plan — CPP2 enhanced employer (2025)',
+    category: 'pension',
+    party: 'employer',
+    rateType: 'percentage',
+    rate: 0.04,
+    appliedTo: 'Pensionable earnings between YMPE $71,300 and YAMPE $81,200',
+    wageCeiling: 81200,
+    authority: 'Canada Revenue Agency (CRA)',
+    source: 'https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/payroll/payroll-deductions-contributions/canada-pension-plan-cpp/cpp-contribution-rates-maximums-exemptions.html',
+    effectiveFrom: '2024-01-01',
+    ...CA_UNREVIEWED,
+  },
+  {
+    id: 'ca-ei-employee-2025',
+    country: 'CA',
+    scheme: 'EI',
+    label: 'Employment Insurance — employee (2025)',
+    category: 'unemployment',
+    party: 'employee',
+    rateType: 'percentage',
+    rate: 0.0164,
+    appliedTo: 'Insurable earnings up to Maximum Insurable Earnings (MIE) $65,700',
+    wageCeiling: 65700,
+    authority: 'Employment and Social Development Canada (ESDC) / CRA',
+    source: 'https://www.canada.ca/en/employment-social-development/programs/ei/ei-list/reports/premium/rates2025.html',
+    effectiveFrom: '2025-01-01',
+    ...CA_UNREVIEWED,
+    notes: [
+      'Quebec residents pay reduced EI premium 1.31% (Quebec runs its own QPIP for parental benefits).',
+      'Maximum employee EI premium 2025 (non-QC) ≈ $1,077.48; Quebec ≈ $860.67.',
+    ],
+  },
+  {
+    id: 'ca-ei-employer-2025',
+    country: 'CA',
+    scheme: 'EI',
+    label: 'Employment Insurance — employer (2025)',
+    category: 'unemployment',
+    party: 'employer',
+    rateType: 'percentage',
+    rate: 0.02296,
+    appliedTo: 'Insurable earnings up to MIE $65,700; rate = 1.4× employee premium',
+    wageCeiling: 65700,
+    authority: 'Employment and Social Development Canada (ESDC) / CRA',
+    source: 'https://www.canada.ca/en/employment-social-development/programs/ei/ei-list/reports/premium/rates2025.html',
+    effectiveFrom: '2025-01-01',
+    ...CA_UNREVIEWED,
+    notes: [
+      'Statutory multiplier: employer EI premium = 1.4 × employee rate (1.64% × 1.4 = 2.296%).',
+      'Reduced multiplier available under approved short-term-disability EI Premium Reduction Program.',
+    ],
+  },
+  {
+    id: 'ca-federal-income-tax-2025',
+    country: 'CA',
+    scheme: 'FederalIncomeTax',
+    label: 'Federal income tax brackets — 2025',
+    category: 'income-tax',
+    party: 'employee',
+    rateType: 'slab',
+    slabs: [
+      { upTo: 57375, rate: 0.15, note: 'First $57,375 of taxable income.' },
+      { upTo: 114750, rate: 0.205, note: '$57,375.01 to $114,750.' },
+      { upTo: 177882, rate: 0.26, note: '$114,750.01 to $177,882.' },
+      { upTo: 253414, rate: 0.29, note: '$177,882.01 to $253,414.' },
+      { upTo: null, rate: 0.33, note: 'Above $253,414.' },
+    ],
+    appliedTo: 'Annual federal taxable income',
+    authority: 'Canada Revenue Agency (CRA)',
+    source: 'https://www.canada.ca/en/revenue-agency/services/tax/individuals/frequently-asked-questions-individuals/canadian-income-tax-rates-individuals-current-previous-years.html',
+    effectiveFrom: '2025-01-01',
+    ...CA_UNREVIEWED,
+    notes: [
+      'Basic Personal Amount (BPA) for 2025 = $16,129 maximum; tapers above net income $177,882 to $14,538 floor for highest earners.',
+      'STUB: Provincial / territorial income tax stacks on top of federal — varies by province (ranges roughly 4–25.75% across brackets). Full provincial coverage is out of scope for this initial block.',
+      'Quebec administers its own provincial income tax directly (not via CRA) — separate filing path.',
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Singapore — public-source-unreviewed. CPF Board age-graded contribution
+// rates effective 01-Jan-2025; SDL is collected by CPF Board on behalf of
+// SSG; IRAS handles annual IR8A but does NOT run monthly PAYE withholding,
+// so no income-tax-at-source entry.
+// ---------------------------------------------------------------------------
+
+const SG_UNREVIEWED = {
+  verification: 'public-source-unreviewed' as const,
+  lastReviewed: '2026-05-14',
+  currency: 'SGD',
+};
+
+const SG_RATES: StatutoryRate[] = [
+  {
+    id: 'sg-cpf-employer-under-55-2025',
+    country: 'SG',
+    scheme: 'CPF',
+    label: 'CPF — employer share, age ≤ 55 (2025)',
+    category: 'social-security',
+    party: 'employer',
+    rateType: 'percentage',
+    rate: 0.17,
+    appliedTo: 'Ordinary Wages up to OW ceiling SGD 7,400/month (2025)',
+    wageCeiling: 7400,
+    authority: 'CPF Board',
+    source: 'https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay',
+    effectiveFrom: '2025-01-01',
+    ...SG_UNREVIEWED,
+    notes: [
+      'Ordinary Wage ceiling stepping up: SGD 6,800 (2024) → 7,400 (2025) → 8,000 (2026) per Budget 2023.',
+      'Annual Additional Wage (AW) ceiling = SGD 102,000 − total OW subject to CPF.',
+      'Applies to Singapore Citizens and Singapore PRs (3rd-year onwards); SPR 1st/2nd year graduated rates apply.',
+    ],
+  },
+  {
+    id: 'sg-cpf-employee-under-55-2025',
+    country: 'SG',
+    scheme: 'CPF',
+    label: 'CPF — employee share, age ≤ 55 (2025)',
+    category: 'social-security',
+    party: 'employee',
+    rateType: 'percentage',
+    rate: 0.20,
+    appliedTo: 'Ordinary Wages up to OW ceiling SGD 7,400/month (2025)',
+    wageCeiling: 7400,
+    authority: 'CPF Board',
+    source: 'https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay',
+    effectiveFrom: '2025-01-01',
+    ...SG_UNREVIEWED,
+    notes: ['Combined under-55 total contribution = 37% (17% employer + 20% employee).'],
+  },
+  {
+    id: 'sg-cpf-employer-55-60-2025',
+    country: 'SG',
+    scheme: 'CPF',
+    label: 'CPF — employer share, age 55–60 (2025)',
+    category: 'social-security',
+    party: 'employer',
+    rateType: 'percentage',
+    rate: 0.155,
+    appliedTo: 'Ordinary Wages up to OW ceiling SGD 7,400/month (2025)',
+    wageCeiling: 7400,
+    authority: 'CPF Board',
+    source: 'https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay',
+    effectiveFrom: '2025-01-01',
+    ...SG_UNREVIEWED,
+    notes: ['Senior-worker CPF rates rose 01-Jan-2025 per Budget 2023 phased schedule (next step 2026).'],
+  },
+  {
+    id: 'sg-cpf-employee-55-60-2025',
+    country: 'SG',
+    scheme: 'CPF',
+    label: 'CPF — employee share, age 55–60 (2025)',
+    category: 'social-security',
+    party: 'employee',
+    rateType: 'percentage',
+    rate: 0.17,
+    appliedTo: 'Ordinary Wages up to OW ceiling SGD 7,400/month (2025)',
+    wageCeiling: 7400,
+    authority: 'CPF Board',
+    source: 'https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay',
+    effectiveFrom: '2025-01-01',
+    ...SG_UNREVIEWED,
+    notes: ['Combined 55–60 total contribution = 32.5%; next phased step in 2026 brings 55–60 closer to under-55 rate.'],
+  },
+  {
+    id: 'sg-cpf-employer-60-65-2025',
+    country: 'SG',
+    scheme: 'CPF',
+    label: 'CPF — employer share, age 60–65 (2025)',
+    category: 'social-security',
+    party: 'employer',
+    rateType: 'percentage',
+    rate: 0.12,
+    appliedTo: 'Ordinary Wages up to OW ceiling SGD 7,400/month (2025)',
+    wageCeiling: 7400,
+    authority: 'CPF Board',
+    source: 'https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay',
+    effectiveFrom: '2025-01-01',
+    ...SG_UNREVIEWED,
+  },
+  {
+    id: 'sg-cpf-employee-60-65-2025',
+    country: 'SG',
+    scheme: 'CPF',
+    label: 'CPF — employee share, age 60–65 (2025)',
+    category: 'social-security',
+    party: 'employee',
+    rateType: 'percentage',
+    rate: 0.115,
+    appliedTo: 'Ordinary Wages up to OW ceiling SGD 7,400/month (2025)',
+    wageCeiling: 7400,
+    authority: 'CPF Board',
+    source: 'https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay',
+    effectiveFrom: '2025-01-01',
+    ...SG_UNREVIEWED,
+    notes: ['Combined 60–65 total contribution = 23.5%.'],
+  },
+  {
+    id: 'sg-cpf-employer-65-70-2025',
+    country: 'SG',
+    scheme: 'CPF',
+    label: 'CPF — employer share, age 65–70 (2025)',
+    category: 'social-security',
+    party: 'employer',
+    rateType: 'percentage',
+    rate: 0.09,
+    appliedTo: 'Ordinary Wages up to OW ceiling SGD 7,400/month (2025)',
+    wageCeiling: 7400,
+    authority: 'CPF Board',
+    source: 'https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay',
+    effectiveFrom: '2025-01-01',
+    ...SG_UNREVIEWED,
+  },
+  {
+    id: 'sg-cpf-employee-65-70-2025',
+    country: 'SG',
+    scheme: 'CPF',
+    label: 'CPF — employee share, age 65–70 (2025)',
+    category: 'social-security',
+    party: 'employee',
+    rateType: 'percentage',
+    rate: 0.075,
+    appliedTo: 'Ordinary Wages up to OW ceiling SGD 7,400/month (2025)',
+    wageCeiling: 7400,
+    authority: 'CPF Board',
+    source: 'https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay',
+    effectiveFrom: '2025-01-01',
+    ...SG_UNREVIEWED,
+    notes: ['Combined 65–70 total contribution = 16.5%.'],
+  },
+  {
+    id: 'sg-cpf-employer-above-70',
+    country: 'SG',
+    scheme: 'CPF',
+    label: 'CPF — employer share, age > 70',
+    category: 'social-security',
+    party: 'employer',
+    rateType: 'percentage',
+    rate: 0.075,
+    appliedTo: 'Ordinary Wages up to OW ceiling SGD 7,400/month (2025)',
+    wageCeiling: 7400,
+    authority: 'CPF Board',
+    source: 'https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay',
+    effectiveFrom: '2016-01-01',
+    ...SG_UNREVIEWED,
+  },
+  {
+    id: 'sg-cpf-employee-above-70',
+    country: 'SG',
+    scheme: 'CPF',
+    label: 'CPF — employee share, age > 70',
+    category: 'social-security',
+    party: 'employee',
+    rateType: 'percentage',
+    rate: 0.05,
+    appliedTo: 'Ordinary Wages up to OW ceiling SGD 7,400/month (2025)',
+    wageCeiling: 7400,
+    authority: 'CPF Board',
+    source: 'https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay',
+    effectiveFrom: '2016-01-01',
+    ...SG_UNREVIEWED,
+    notes: ['Combined above-70 total contribution = 12.5%.'],
+  },
+  {
+    id: 'sg-sdl',
+    country: 'SG',
+    scheme: 'SDL',
+    label: 'Skills Development Levy',
+    category: 'state-payroll-tax',
+    party: 'employer',
+    rateType: 'percentage',
+    rate: 0.0025,
+    appliedTo: 'First SGD 4,500 of each employee\'s monthly gross wages; min SGD 2, max SGD 11.25 per employee',
+    wageCeiling: 4500,
+    authority: 'SkillsFuture Singapore (SSG) — collected via CPF Board',
+    source: 'https://www.ssg-wsg.gov.sg/programmes-and-initiatives/funding/skills-development-levy.html',
+    effectiveFrom: '2008-10-01',
+    ...SG_UNREVIEWED,
+    notes: [
+      '0.25% on first SGD 4,500/month, with minimum SGD 2/employee and maximum SGD 11.25/employee — quirky two-sided cap.',
+      'Payable on ALL employees (local, foreign, full-time, part-time, contract, casual) — broader base than CPF which is citizens/PRs only.',
+      'Funds the Skills Development Fund used for SkillsFuture training subsidies.',
+    ],
+  },
+  {
+    id: 'sg-income-tax-note',
+    country: 'SG',
+    scheme: 'IR8A',
+    label: 'Singapore income tax — no monthly withholding',
+    category: 'income-tax',
+    party: 'n/a',
+    rateType: 'percentage',
+    rate: 0,
+    appliedTo: 'Annual taxable income — IRAS bills employee directly after IR8A annual reporting',
+    authority: 'Inland Revenue Authority of Singapore (IRAS)',
+    source: 'https://www.iras.gov.sg/taxes/individual-income-tax',
+    effectiveFrom: '1965-08-09',
+    ...SG_UNREVIEWED,
+    notes: [
+      'Singapore does NOT operate monthly PAYE withholding for resident employees. Employers report annual income via IR8A by 01-Mar each year; IRAS issues the Notice of Assessment directly to the employee.',
+      'Non-resident employees and clearance cases (departure / NPL) require IR21 tax clearance — employer withholds final salary until IRAS clears.',
+      'Resident progressive rates 2024-onwards run 0% (first $20k) up to 24% (above $1M). Confirm against IRAS for the relevant Year of Assessment.',
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
+// New Zealand — public-source-unreviewed. Inland Revenue (IR) PAYE bands per
+// the Income Tax (Personal Tax Cuts) Amendment Act 2024 (full-year rates from
+// 01-Apr-2025); KiwiSaver and ACC earner's levy per IR / ACC schedules.
+// ---------------------------------------------------------------------------
+
+const NZ_UNREVIEWED = {
+  verification: 'public-source-unreviewed' as const,
+  lastReviewed: '2026-05-14',
+  currency: 'NZD',
+};
+
+const NZ_RATES: StatutoryRate[] = [
+  {
+    id: 'nz-paye-income-tax-2025',
+    country: 'NZ',
+    scheme: 'PAYE',
+    label: 'PAYE income tax bands — full-year from 01-Apr-2025',
+    category: 'income-tax',
+    party: 'employee',
+    rateType: 'slab',
+    slabs: [
+      { upTo: 15600, rate: 0.105, note: '$0 to $15,600.' },
+      { upTo: 53500, rate: 0.175, note: '$15,601 to $53,500.' },
+      { upTo: 78100, rate: 0.30, note: '$53,501 to $78,100.' },
+      { upTo: 180000, rate: 0.33, note: '$78,101 to $180,000.' },
+      { upTo: null, rate: 0.39, note: 'Above $180,000.' },
+    ],
+    appliedTo: 'Annual taxable income (resident)',
+    authority: 'Inland Revenue (IR)',
+    source: 'https://www.ird.govt.nz/income-tax/income-tax-for-individuals/tax-codes-and-tax-rates-for-individuals/tax-rates-for-individuals',
+    effectiveFrom: '2025-04-01',
+    ...NZ_UNREVIEWED,
+    notes: [
+      'Thresholds rose 31-Jul-2024 per the 2024 personal-tax-cuts package. Full-year bands shown apply from 01-Apr-2025; FY 2024-25 used composite rates due to mid-year change.',
+      'The 39% top rate (above $180,000) was added 01-Apr-2021 and is unchanged.',
+      'Independent Earner Tax Credit (IETC) phaseout starts at $66,000 (up from $48,000) under the 2024 changes.',
+    ],
+  },
+  {
+    id: 'nz-kiwisaver-employee',
+    country: 'NZ',
+    scheme: 'KiwiSaver',
+    label: 'KiwiSaver — employee minimum contribution',
+    category: 'pension',
+    party: 'employee',
+    rateType: 'percentage',
+    rate: 0.03,
+    appliedTo: 'Gross earnings before tax',
+    authority: 'Inland Revenue (IR)',
+    source: 'https://www.ird.govt.nz/kiwisaver',
+    effectiveFrom: '2013-04-01',
+    ...NZ_UNREVIEWED,
+    notes: [
+      'Employee may elect 3%, 4%, 6%, 8% or 10% — 3% is the statutory minimum.',
+      'Savings suspension available after 12 months of membership; new members can also opt out within 8 weeks of auto-enrol.',
+    ],
+  },
+  {
+    id: 'nz-kiwisaver-employer',
+    country: 'NZ',
+    scheme: 'KiwiSaver',
+    label: 'KiwiSaver — employer minimum contribution',
+    category: 'pension',
+    party: 'employer',
+    rateType: 'percentage',
+    rate: 0.03,
+    appliedTo: 'Gross earnings before tax',
+    authority: 'Inland Revenue (IR)',
+    source: 'https://www.ird.govt.nz/kiwisaver',
+    effectiveFrom: '2013-04-01',
+    ...NZ_UNREVIEWED,
+    notes: [
+      'Compulsory employer contribution (CEC) is 3% minimum on gross earnings of KiwiSaver members.',
+      'Subject to Employer Superannuation Contribution Tax (ESCT) — see esct entry — paid in addition unless using salary-sacrifice.',
+    ],
+  },
+  {
+    id: 'nz-acc-earners-levy-2025',
+    country: 'NZ',
+    scheme: 'ACC',
+    label: 'ACC earner\'s levy — 2025-26',
+    category: 'social-security',
+    party: 'employee',
+    rateType: 'percentage',
+    rate: 0.0167,
+    appliedTo: 'Liable earnings up to the maximum income threshold',
+    authority: 'Accident Compensation Corporation (ACC)',
+    source: 'https://www.acc.co.nz/for-business/levies/levies-payable-for-employers-and-self-employed-people/',
+    effectiveFrom: '2025-04-01',
+    ...NZ_UNREVIEWED,
+    notes: [
+      'Includes 0.07% GST. Earner\'s levy is collected by IR via PAYE alongside income tax.',
+      'Liable earnings cap for 2025-26 is published annually by ACC — confirm current figure against the ACC levy page.',
+      'Employer pays a SEPARATE Work levy based on industry classification (CU) — not modelled here as it is industry-specific.',
+    ],
+  },
+  {
+    id: 'nz-esct-2025',
+    country: 'NZ',
+    scheme: 'ESCT',
+    label: 'Employer Superannuation Contribution Tax — graduated by salary',
+    category: 'pension',
+    party: 'employer',
+    rateType: 'slab',
+    slabs: [
+      { upTo: 16800, rate: 0.105, note: 'Up to $16,800 ESCT-rate threshold income.' },
+      { upTo: 57600, rate: 0.175, note: '$16,801 to $57,600.' },
+      { upTo: 84000, rate: 0.30, note: '$57,601 to $84,000.' },
+      { upTo: 216000, rate: 0.33, note: '$84,001 to $216,000.' },
+      { upTo: null, rate: 0.39, note: 'Above $216,000 ESCT-rate threshold income.' },
+    ],
+    appliedTo: 'Employer cash contributions to KiwiSaver / complying super, banded by employee\'s prior-year gross salary + employer super contributions',
+    authority: 'Inland Revenue (IR)',
+    source: 'https://www.ird.govt.nz/employing-staff/payday-filing/non-standard-filing-of-employment-information/escapeing-superannuation-contribution-tax-esct',
+    effectiveFrom: '2024-04-01',
+    ...NZ_UNREVIEWED,
+    notes: [
+      'ESCT is deducted FROM the employer contribution (not added on top). Employee may elect to have employer contributions taxed via PAYE instead (RSCT election).',
+      'New employees in their first year use estimated annualised remuneration; subsequent years use last-tax-year actuals.',
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
+// United Arab Emirates — public-source-unreviewed. No personal income tax;
+// End-of-Service Gratuity per Federal Decree-Law 33 of 2021; DEWS is a DIFC-
+// specific defined-contribution scheme that REPLACES gratuity for in-scope
+// DIFC employers. WPS (Wage Protection System) is a payout process — see the
+// existing `ae-wps` payroll engine in countries.ts rather than duplicating
+// here.
+// ---------------------------------------------------------------------------
+
+const AE_UNREVIEWED = {
+  verification: 'public-source-unreviewed' as const,
+  lastReviewed: '2026-05-14',
+  currency: 'AED',
+};
+
+const AE_RATES: StatutoryRate[] = [
+  {
+    id: 'ae-personal-income-tax',
+    country: 'AE',
+    scheme: 'PersonalIncomeTax',
+    label: 'Personal income tax — UAE (0%)',
+    category: 'income-tax',
+    party: 'employee',
+    rateType: 'percentage',
+    rate: 0,
+    appliedTo: 'All personal income — UAE has no federal personal income tax',
+    authority: 'UAE Federal Tax Authority (FTA)',
+    source: 'https://tax.gov.ae/en/taxes/individual.tax.aspx',
+    effectiveFrom: '1971-12-02',
+    ...AE_UNREVIEWED,
+    notes: [
+      'The UAE imposes NO personal income tax on salaries or wages — flat 0%.',
+      'A 9% Corporate Tax applies to business income above AED 375,000 (effective 01-Jun-2023, Federal Decree-Law 47 of 2022) — that is a business tax, not a payroll tax.',
+      'VAT of 5% applies at point of sale on most goods/services (Federal Decree-Law 8 of 2017).',
+    ],
+  },
+  {
+    id: 'ae-eosg-first-5-years',
+    country: 'AE',
+    scheme: 'EOSG',
+    label: 'End-of-Service Gratuity — first 5 years',
+    category: 'end-of-service',
+    party: 'employer',
+    rateType: 'percentage',
+    rate: 0.0575,
+    appliedTo: 'Basic salary per completed year of service (21 days / 365 ≈ 5.75% of annual basic)',
+    authority: 'Ministry of Human Resources and Emiratisation (MOHRE)',
+    source: 'https://u.ae/en/information-and-services/jobs/end-of-service-benefits',
+    effectiveFrom: '2022-02-02',
+    ...AE_UNREVIEWED,
+    notes: [
+      'Federal Decree-Law 33 of 2021 (in force 02-Feb-2022): 21 days basic salary for each of the first 5 years.',
+      'Computed on LAST drawn basic salary; allowances (housing, transport, etc.) are excluded.',
+      'See `ae-eosg-years-above-5` for accrual on service beyond 5 years; total gratuity is capped at 2 years\' basic salary regardless of service length.',
+      'Rate is expressed as fraction of ANNUAL basic salary accrued per year of service (21/365). For a daily-rate view: gratuity per year = (basic_monthly × 12 / 365) × 21.',
+      'DIFC employers (Dubai International Financial Centre) replaced gratuity with DEWS from 01-Feb-2020 — see `ae-dews-*` entries.',
+    ],
+  },
+  {
+    id: 'ae-eosg-years-above-5',
+    country: 'AE',
+    scheme: 'EOSG',
+    label: 'End-of-Service Gratuity — year 6 onwards',
+    category: 'end-of-service',
+    party: 'employer',
+    rateType: 'percentage',
+    rate: 0.0822,
+    appliedTo: 'Basic salary per completed year of service beyond 5 (30 days / 365 ≈ 8.22% of annual basic)',
+    authority: 'Ministry of Human Resources and Emiratisation (MOHRE)',
+    source: 'https://u.ae/en/information-and-services/jobs/end-of-service-benefits',
+    effectiveFrom: '2022-02-02',
+    ...AE_UNREVIEWED,
+    notes: [
+      '30 days basic salary for each year of service after the 5th year.',
+      'Total gratuity (years 1-5 + 6 onwards) is CAPPED at 2 years\' basic salary regardless of tenure.',
+      'Resignation under unlimited-contract pre-2022 had different graduated payout rules — those legacy contracts were migrated in 2023.',
+    ],
+  },
+  {
+    id: 'ae-dews-under-5-years',
+    country: 'AE',
+    scheme: 'DEWS',
+    label: 'DIFC Employee Workplace Savings — first 5 years',
+    category: 'pension',
+    party: 'employer',
+    rateType: 'percentage',
+    rate: 0.0583,
+    appliedTo: 'Monthly basic salary (DIFC employers only; replaces gratuity for in-scope employees)',
+    authority: 'Dubai International Financial Centre Authority (DIFCA)',
+    source: 'https://www.difc.ae/business/operating/employment/dews/',
+    effectiveFrom: '2020-02-01',
+    ...AE_UNREVIEWED,
+    notes: [
+      '5.83% per month of basic salary for employees with less than 5 years of qualifying DIFC service.',
+      'Applies only to DIFC employers — replaces the Federal Decree-Law 33 of 2021 EOSG for in-scope staff.',
+      'Employees may make voluntary additional contributions; employer contributions vest immediately.',
+    ],
+  },
+  {
+    id: 'ae-dews-above-5-years',
+    country: 'AE',
+    scheme: 'DEWS',
+    label: 'DIFC Employee Workplace Savings — year 6 onwards',
+    category: 'pension',
+    party: 'employer',
+    rateType: 'percentage',
+    rate: 0.0833,
+    appliedTo: 'Monthly basic salary (DIFC employers only)',
+    authority: 'Dubai International Financial Centre Authority (DIFCA)',
+    source: 'https://www.difc.ae/business/operating/employment/dews/',
+    effectiveFrom: '2020-02-01',
+    ...AE_UNREVIEWED,
+    notes: [
+      '8.33% per month of basic salary for employees with 5 or more years of qualifying DIFC service.',
+      'Equivalent to one month\'s basic salary per year of service.',
+    ],
+  },
+  {
+    id: 'ae-wps-process-note',
+    country: 'AE',
+    scheme: 'WPS',
+    label: 'UAE Wage Protection System — process, not a rate',
+    category: 'state-payroll-tax',
+    party: 'n/a',
+    rateType: 'percentage',
+    rate: 0,
+    appliedTo: 'Process: all private-sector salaries must be disbursed via MOHRE-approved WPS agents (banks, exchange houses)',
+    authority: 'Ministry of Human Resources and Emiratisation (MOHRE) + Central Bank of the UAE',
+    source: 'https://www.mohre.gov.ae/en/services/wps.aspx',
+    effectiveFrom: '2009-09-01',
+    ...AE_UNREVIEWED,
+    notes: [
+      'WPS is a payout process, not a percentage rate. There is no statutory deduction or contribution rate attached.',
+      'See the `ae-wps` payroll engine entry in `countries.ts` for HelloTime\'s SIF (Salary Information File) generation support.',
+      'Non-compliance can trigger fines per company per affected employee, work-permit blocks, and labour-card suspension.',
+      'DIFC and ADGM employers operate WPS variants run by their respective free-zone authorities.',
+    ],
+  },
+];
+
+// ---------------------------------------------------------------------------
 // Final catalog
 // ---------------------------------------------------------------------------
 
@@ -607,4 +1417,9 @@ export const STATUTORY_RATES: StatutoryRate[] = [
   ...IN_INCOME_TAX,
   ...AU_RATES,
   ...US_RATES,
+  ...GB_RATES,
+  ...CA_RATES,
+  ...SG_RATES,
+  ...NZ_RATES,
+  ...AE_RATES,
 ];

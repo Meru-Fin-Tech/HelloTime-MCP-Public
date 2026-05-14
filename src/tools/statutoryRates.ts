@@ -14,16 +14,17 @@ const CATEGORIES: StatutoryCategory[] = [
   'pension',
   'unemployment',
   'state-payroll-tax',
+  'end-of-service',
 ];
 
 export const statutoryRatesSchema = {
-  country: z.enum(['IN', 'AU', 'US']).optional()
-    .describe('Filter to one country. IN is the comprehensively-verified block; AU and US are public-source-unreviewed.'),
+  country: z.enum(['IN', 'AU', 'US', 'GB', 'CA', 'SG', 'NZ', 'AE']).optional()
+    .describe('Filter to one country. IN is the comprehensively-verified block; AU, US, GB, CA, SG, NZ and AE are public-source-unreviewed.'),
   scheme: z.string().optional()
-    .describe('Match a scheme key like "PF", "ESI", "PT", "TDS", "SuperGuarantee", "FICA-SS", "FICA-Medicare", "FUTA", "401k", "MedicareLevy". Case-insensitive substring match.'),
+    .describe('Match a scheme key like "PF", "ESI", "PT", "TDS", "SuperGuarantee", "FICA-SS", "FICA-Medicare", "FUTA", "401k", "MedicareLevy", "NI-Class1", "PAYE", "AutoEnrol", "ApprenticeshipLevy", "CPP", "CPP2", "EI", "FederalIncomeTax", "CPF", "SDL", "IR8A", "KiwiSaver", "ACC", "ESCT", "EOSG", "DEWS", "WPS". Case-insensitive substring match.'),
   category: z.enum(CATEGORIES as [StatutoryCategory, ...StatutoryCategory[]])
     .optional()
-    .describe('Filter by statutory category (social-security, health-insurance, income-tax, professional-tax, pension, unemployment, state-payroll-tax).'),
+    .describe('Filter by statutory category (social-security, health-insurance, income-tax, professional-tax, pension, unemployment, state-payroll-tax, end-of-service).'),
   state: z.string().optional()
     .describe('For India professional tax, the state name (e.g. "Maharashtra", "Karnataka", "Tamil Nadu"). Case-insensitive substring match.'),
   party: z.enum(['employee', 'employer', 'both']).optional()

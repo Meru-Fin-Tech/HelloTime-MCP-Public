@@ -262,3 +262,276 @@ test('feature_search "Super Guarantee" routes to AU super entries', () => {
   const auSuper = r.results.find((h) => h.source === 'statutory-rate' && h.id.startsWith('au-super'));
   assert.ok(auSuper, 'expected AU Super Guarantee hit');
 });
+
+// ---------------------------------------------------------------------------
+// UK (HMRC) — public-source-unreviewed headline rates
+// ---------------------------------------------------------------------------
+
+test('statutory_rates GB NI Class 1 employee — 8% main / 2% additional band (2025-26)', () => {
+  const ni = statutoryRates({ id: 'gb-ni-class1-employee-2025' }).rates[0]!;
+  assert.equal(ni.country, 'GB');
+  assert.equal(ni.rateType, 'slab');
+  assert.equal(ni.slabs?.length, 3);
+  // Primary threshold = £12,570; UEL = £50,270
+  const ptBand = ni.slabs!.find((s) => s.upTo === 12570)!;
+  assert.equal(ptBand.rate, 0);
+  const mainBand = ni.slabs!.find((s) => s.upTo === 50270)!;
+  assert.equal(mainBand.rate, 0.08);
+  const top = ni.slabs!.find((s) => s.upTo === null)!;
+  assert.equal(top.rate, 0.02);
+  assert.equal(ni.currency, 'GBP');
+  assert.equal(ni.verification, 'public-source-unreviewed');
+});
+
+test('statutory_rates GB NI Class 1 employer is 15% post Autumn Budget 2024', () => {
+  const ni = statutoryRates({ id: 'gb-ni-class1-employer-2025' }).rates[0]!;
+  assert.equal(ni.rate, 0.15);
+  assert.equal(ni.party, 'employer');
+  assert.equal(ni.effectiveFrom, '2025-04-06');
+});
+
+test('statutory_rates GB PAYE bands — 0/20/40/45 with £12,570 personal allowance', () => {
+  const paye = statutoryRates({ id: 'gb-paye-income-tax-2025' }).rates[0]!;
+  assert.equal(paye.rateType, 'slab');
+  const slabs = paye.slabs!;
+  assert.equal(slabs.find((s) => s.upTo === 12570)!.rate, 0);
+  assert.equal(slabs.find((s) => s.upTo === 50270)!.rate, 0.20);
+  assert.equal(slabs.find((s) => s.upTo === 125140)!.rate, 0.40);
+  assert.equal(slabs.find((s) => s.upTo === null)!.rate, 0.45);
+});
+
+test('statutory_rates GB auto-enrolment splits 3% employer + 5% employee = 8% total', () => {
+  const total = statutoryRates({ id: 'gb-pension-auto-enrol-total' }).rates[0]!;
+  const employer = statutoryRates({ id: 'gb-pension-auto-enrol-employer' }).rates[0]!;
+  const employee = statutoryRates({ id: 'gb-pension-auto-enrol-employee' }).rates[0]!;
+  assert.equal(total.rate, 0.08);
+  assert.equal(employer.rate, 0.03);
+  assert.equal(employee.rate, 0.05);
+  // Sanity: employer + employee == total
+  assert.equal(
+    Math.round((employer.rate! + employee.rate!) * 1000) / 1000,
+    total.rate,
+  );
+});
+
+test('statutory_rates GB Apprenticeship Levy is 0.5% above £3M paybill', () => {
+  const al = statutoryRates({ id: 'gb-apprenticeship-levy' }).rates[0]!;
+  assert.equal(al.rate, 0.005);
+  assert.equal(al.party, 'employer');
+  assert.match(al.appliedTo, /3,000,000/);
+});
+
+// ---------------------------------------------------------------------------
+// Canada (CRA) — public-source-unreviewed headline rates
+// ---------------------------------------------------------------------------
+
+test('statutory_rates CA CPP — 5.95% each side, YMPE $71,300 for 2025', () => {
+  const ee = statutoryRates({ id: 'ca-cpp-employee-2025' }).rates[0]!;
+  const er = statutoryRates({ id: 'ca-cpp-employer-2025' }).rates[0]!;
+  assert.equal(ee.rate, 0.0595);
+  assert.equal(er.rate, 0.0595);
+  assert.equal(ee.wageCeiling, 71300);
+  assert.equal(er.wageCeiling, 71300);
+  assert.equal(ee.currency, 'CAD');
+});
+
+test('statutory_rates CA CPP2 — 4% each side, YAMPE $81,200 for 2025', () => {
+  const ee = statutoryRates({ id: 'ca-cpp2-employee-2025' }).rates[0]!;
+  const er = statutoryRates({ id: 'ca-cpp2-employer-2025' }).rates[0]!;
+  assert.equal(ee.rate, 0.04);
+  assert.equal(er.rate, 0.04);
+  assert.equal(ee.wageCeiling, 81200);
+  assert.equal(er.wageCeiling, 81200);
+});
+
+test('statutory_rates CA EI — employee 1.64%, employer 1.4× (≈2.296%) on MIE $65,700', () => {
+  const ee = statutoryRates({ id: 'ca-ei-employee-2025' }).rates[0]!;
+  const er = statutoryRates({ id: 'ca-ei-employer-2025' }).rates[0]!;
+  assert.equal(ee.rate, 0.0164);
+  assert.equal(er.rate, 0.02296);
+  // Sanity: employer is 1.4× employee within float tolerance
+  assert.ok(Math.abs(er.rate! - ee.rate! * 1.4) < 1e-6);
+  assert.equal(ee.wageCeiling, 65700);
+});
+
+test('statutory_rates CA federal income tax has 5 brackets 15/20.5/26/29/33', () => {
+  const it = statutoryRates({ id: 'ca-federal-income-tax-2025' }).rates[0]!;
+  assert.equal(it.rateType, 'slab');
+  assert.equal(it.slabs?.length, 5);
+  const rates = it.slabs!.map((s) => s.rate);
+  assert.deepEqual(rates, [0.15, 0.205, 0.26, 0.29, 0.33]);
+  // Note flags provincial stub
+  assert.ok(it.notes?.some((n) => /STUB|provincial/i.test(n)));
+});
+
+// ---------------------------------------------------------------------------
+// Singapore (CPF + IRAS) — public-source-unreviewed headline rates
+// ---------------------------------------------------------------------------
+
+test('statutory_rates SG CPF under-55 = 17% employer + 20% employee on OW ceiling $7,400', () => {
+  const er = statutoryRates({ id: 'sg-cpf-employer-under-55-2025' }).rates[0]!;
+  const ee = statutoryRates({ id: 'sg-cpf-employee-under-55-2025' }).rates[0]!;
+  assert.equal(er.rate, 0.17);
+  assert.equal(ee.rate, 0.20);
+  assert.equal(er.wageCeiling, 7400);
+  assert.equal(ee.wageCeiling, 7400);
+  assert.equal(er.currency, 'SGD');
+});
+
+test('statutory_rates SG CPF age tiers step DOWN as age rises', () => {
+  // Combined rates: <55: 37%, 55-60: 32.5%, 60-65: 23.5%, 65-70: 16.5%, >70: 12.5%
+  const tiers = [
+    ['sg-cpf-employer-under-55-2025', 'sg-cpf-employee-under-55-2025', 0.37],
+    ['sg-cpf-employer-55-60-2025',    'sg-cpf-employee-55-60-2025',    0.325],
+    ['sg-cpf-employer-60-65-2025',    'sg-cpf-employee-60-65-2025',    0.235],
+    ['sg-cpf-employer-65-70-2025',    'sg-cpf-employee-65-70-2025',    0.165],
+    ['sg-cpf-employer-above-70',      'sg-cpf-employee-above-70',      0.125],
+  ] as const;
+  let lastCombined = Number.POSITIVE_INFINITY;
+  for (const [erId, eeId, expected] of tiers) {
+    const er = statutoryRates({ id: erId }).rates[0]!;
+    const ee = statutoryRates({ id: eeId }).rates[0]!;
+    const combined = Math.round((er.rate! + ee.rate!) * 1000) / 1000;
+    assert.equal(combined, expected, `${erId}+${eeId} combined`);
+    assert.ok(combined <= lastCombined, `CPF combined rate should not rise with age (${erId})`);
+    lastCombined = combined;
+  }
+});
+
+test('statutory_rates SG SDL is 0.25% on first $4,500, capped $11.25/employee', () => {
+  const sdl = statutoryRates({ id: 'sg-sdl' }).rates[0]!;
+  assert.equal(sdl.rate, 0.0025);
+  assert.equal(sdl.wageCeiling, 4500);
+  assert.equal(sdl.party, 'employer');
+  assert.match(sdl.appliedTo, /11\.25/);
+});
+
+test('statutory_rates SG income tax entry documents annual IR8A (no PAYE withholding)', () => {
+  const it = statutoryRates({ id: 'sg-income-tax-note' }).rates[0]!;
+  assert.equal(it.rate, 0);
+  assert.equal(it.party, 'n/a');
+  assert.match(it.notes?.join(' ') ?? '', /IR8A|annual|withholding/i);
+});
+
+// ---------------------------------------------------------------------------
+// New Zealand (Inland Revenue) — public-source-unreviewed headline rates
+// ---------------------------------------------------------------------------
+
+test('statutory_rates NZ PAYE has 5 bands 10.5/17.5/30/33/39 from 01-Apr-2025', () => {
+  const paye = statutoryRates({ id: 'nz-paye-income-tax-2025' }).rates[0]!;
+  assert.equal(paye.rateType, 'slab');
+  assert.equal(paye.slabs?.length, 5);
+  const rates = paye.slabs!.map((s) => s.rate);
+  assert.deepEqual(rates, [0.105, 0.175, 0.30, 0.33, 0.39]);
+  assert.equal(paye.slabs!.find((s) => s.upTo === 15600)!.rate, 0.105);
+  assert.equal(paye.effectiveFrom, '2025-04-01');
+});
+
+test('statutory_rates NZ KiwiSaver minimum = 3% employee + 3% employer', () => {
+  const ee = statutoryRates({ id: 'nz-kiwisaver-employee' }).rates[0]!;
+  const er = statutoryRates({ id: 'nz-kiwisaver-employer' }).rates[0]!;
+  assert.equal(ee.rate, 0.03);
+  assert.equal(er.rate, 0.03);
+  assert.equal(ee.currency, 'NZD');
+});
+
+test('statutory_rates NZ ACC earner levy is on employee + 5-band ESCT exists', () => {
+  const acc = statutoryRates({ id: 'nz-acc-earners-levy-2025' }).rates[0]!;
+  assert.equal(acc.party, 'employee');
+  assert.ok(acc.rate! > 0 && acc.rate! < 0.05, 'ACC earner levy should be a small percentage');
+  const esct = statutoryRates({ id: 'nz-esct-2025' }).rates[0]!;
+  assert.equal(esct.rateType, 'slab');
+  assert.equal(esct.slabs?.length, 5);
+  // Top ESCT band hits 39% to align with top PAYE band
+  assert.equal(esct.slabs!.find((s) => s.upTo === null)!.rate, 0.39);
+});
+
+// ---------------------------------------------------------------------------
+// United Arab Emirates (MOHRE) — public-source-unreviewed
+// ---------------------------------------------------------------------------
+
+test('statutory_rates AE personal income tax is 0% with explanatory notes', () => {
+  const it = statutoryRates({ id: 'ae-personal-income-tax' }).rates[0]!;
+  assert.equal(it.rate, 0);
+  assert.equal(it.category, 'income-tax');
+  assert.equal(it.currency, 'AED');
+  // Notes mention 9% Corporate Tax and 5% VAT explicitly as separate things
+  const notes = it.notes?.join(' ') ?? '';
+  assert.match(notes, /Corporate Tax|9%/);
+  assert.match(notes, /VAT|5%/);
+});
+
+test('statutory_rates AE EOSG — 21 days first 5 yrs, 30 days year 6+, capped 2 yrs', () => {
+  const first5 = statutoryRates({ id: 'ae-eosg-first-5-years' }).rates[0]!;
+  const above5 = statutoryRates({ id: 'ae-eosg-years-above-5' }).rates[0]!;
+  // 21/365 ≈ 0.0575; 30/365 ≈ 0.0822
+  assert.equal(first5.rate, 0.0575);
+  assert.equal(above5.rate, 0.0822);
+  assert.equal(first5.category, 'end-of-service');
+  assert.equal(above5.category, 'end-of-service');
+  // Cap-of-2-years note must be present on one of the entries
+  const allNotes = [first5.notes ?? [], above5.notes ?? []].flat().join(' ');
+  assert.match(allNotes, /2 years|cap/i);
+});
+
+test('statutory_rates AE DEWS — 5.83% under 5 yrs / 8.33% above; DIFC-only marker', () => {
+  const under = statutoryRates({ id: 'ae-dews-under-5-years' }).rates[0]!;
+  const above = statutoryRates({ id: 'ae-dews-above-5-years' }).rates[0]!;
+  assert.equal(under.rate, 0.0583);
+  assert.equal(above.rate, 0.0833);
+  assert.match(under.appliedTo, /DIFC/);
+  assert.match(under.notes?.join(' ') ?? '', /DIFC/);
+});
+
+test('statutory_rates AE WPS is documented as a process, not a rate (0% + n/a)', () => {
+  const wps = statutoryRates({ id: 'ae-wps-process-note' }).rates[0]!;
+  assert.equal(wps.rate, 0);
+  assert.equal(wps.party, 'n/a');
+  assert.match(wps.notes?.join(' ') ?? '', /process|not a (percentage )?rate/i);
+});
+
+// ---------------------------------------------------------------------------
+// Catalog-level invariants for the expanded footprint
+// ---------------------------------------------------------------------------
+
+test('statutory_rates new countries all ship verification=public-source-unreviewed', () => {
+  for (const country of ['GB', 'CA', 'SG', 'NZ', 'AE'] as const) {
+    const r = statutoryRates({ country });
+    assert.ok(r.rates.length > 0, `expected rates for ${country}`);
+    for (const x of r.rates) {
+      assert.equal(x.verification, 'public-source-unreviewed', `${x.id} verification`);
+    }
+  }
+});
+
+test('statutory_rates covers all 8 marketed countries from countries.ts', () => {
+  const r = statutoryRates({});
+  const countries = new Set(r.rates.map((x) => x.country));
+  for (const c of ['IN', 'AU', 'US', 'GB', 'CA', 'SG', 'NZ', 'AE']) {
+    assert.ok(countries.has(c as never), `expected ${c} in catalog`);
+  }
+});
+
+test('feature_search "CPP" routes to a CA pension statutory rate', () => {
+  const r = featureSearch({ query: 'CPP' });
+  const hit = r.results.find((h) => h.source === 'statutory-rate' && h.id.startsWith('ca-cpp'));
+  assert.ok(hit, 'expected at least one CA CPP statutory-rate hit');
+});
+
+test('feature_search "KiwiSaver" routes to NZ KiwiSaver statutory rate', () => {
+  const r = featureSearch({ query: 'KiwiSaver' });
+  const hit = r.results.find((h) => h.source === 'statutory-rate' && h.id.startsWith('nz-kiwisaver'));
+  assert.ok(hit, 'expected KiwiSaver statutory hit');
+});
+
+test('feature_search "Apprenticeship Levy" routes to GB apprenticeship-levy rate', () => {
+  const r = featureSearch({ query: 'Apprenticeship Levy' });
+  const hit = r.results.find((h) => h.source === 'statutory-rate' && h.id === 'gb-apprenticeship-levy');
+  assert.ok(hit, 'expected GB Apprenticeship Levy hit');
+});
+
+test('feature_search "End of Service Gratuity" routes to AE EOSG entries', () => {
+  const r = featureSearch({ query: 'End of Service Gratuity' });
+  const hit = r.results.find((h) => h.source === 'statutory-rate' && h.id.startsWith('ae-eosg'));
+  assert.ok(hit, 'expected AE EOSG hit');
+});
