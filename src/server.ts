@@ -16,10 +16,11 @@ import { payrollCapabilities, payrollCapabilitiesSchema } from './tools/payrollC
 import { featureSearch, featureSearchSchema } from './tools/featureSearch.js';
 import { statutoryRates, statutoryRatesSchema } from './tools/statutoryRates.js';
 import { listCompetitors, listCompetitorsSchema } from './tools/listCompetitors.js';
+import { localPaymentMethods, localPaymentMethodsSchema } from './tools/paymentMethods.js';
 import { RESOURCES, readResource } from './resources/index.js';
 
 const SERVER_NAME = 'hellotime-public';
-const SERVER_VERSION = '0.2.2';
+const SERVER_VERSION = '0.3.0';
 
 function asJsonContent(payload: unknown) {
   return {
@@ -71,7 +72,7 @@ export function createServer(): McpServer {
 
   server.tool(
     'feature_search',
-    'Free-text search across plan features, product features, country features, payroll engines, statutory rates, and competitor positioning. Queries like "PF rate", "ESI threshold", "PT slab Maharashtra", "vs Truein", or "Deputy alternative" surface the matching entry near the top.',
+    'Free-text search across plan features, product features, country features, payroll engines, statutory rates, competitor positioning, and local payment methods. Queries like "PF rate", "ESI threshold", "PT slab Maharashtra", "vs Truein", "Deputy alternative", "UPI cap", or "BACS payroll" surface the matching entry near the top.',
     featureSearchSchema,
     async (args) => asJsonContent(featureSearch(args)),
   );
@@ -90,6 +91,13 @@ export function createServer(): McpServer {
     async (args) => asJsonContent(listCompetitors(args)),
   );
 
+  server.tool(
+    'local_payment_methods',
+    'List local bank-rail / wallet payment methods relevant to HelloTime payroll and contractor payouts (UPI, IMPS, NEFT, RTGS, BACS, FPS, Faster Payments, Interac e-Transfer, EFT, PayID, PayTo, NPP, EFT/BECS, ACH, Same Day ACH, Fedwire, RTP, WPS-SIF, PayNow, FAST, GIRO, NZ Direct Credit, etc.). Returns rail (instant / same-day / next-day / multi-day), use-cases, issuing authority, HelloTime support level, and operational notes (per-transaction caps, settlement windows, retirement timelines). Filter by country, useCase, rail, or id.',
+    localPaymentMethodsSchema,
+    async (args) => asJsonContent(localPaymentMethods(args)),
+  );
+
   // Resources
   for (const r of RESOURCES) {
     server.resource(
@@ -104,5 +112,5 @@ export function createServer(): McpServer {
 }
 
 // Re-exports useful for tests
-export { listPlans, listFeatures, countrySupport, payrollCapabilities, featureSearch, statutoryRates, listCompetitors };
+export { listPlans, listFeatures, countrySupport, payrollCapabilities, featureSearch, statutoryRates, listCompetitors, localPaymentMethods };
 export const _internal = { z };

@@ -8,6 +8,7 @@ import { payrollCapabilities } from '../src/tools/payrollCapabilities.js';
 import { featureSearch } from '../src/tools/featureSearch.js';
 import { statutoryRates } from '../src/tools/statutoryRates.js';
 import { listCompetitors } from '../src/tools/listCompetitors.js';
+import { localPaymentMethods } from '../src/tools/paymentMethods.js';
 
 test('list_plans returns all 5 tiers when unfiltered', () => {
   const r = listPlans({});
@@ -326,4 +327,99 @@ test('feature_search "Connecteam comparison" finds the Connecteam competitor ent
   const r = featureSearch({ query: 'Connecteam comparison' });
   const hit = r.results.find((h) => h.source === 'competitor' && h.id === 'connecteam');
   assert.ok(hit, 'expected a competitor hit for Connecteam');
+});
+
+test('local_payment_methods default scope is HelloTime payroll + contractor-payout', () => {
+  const r = localPaymentMethods({});
+  assert.ok(r.count > 0);
+  // Every entry must have at least one of the workforce-management use-cases.
+  for (const m of r.methods) {
+    assert.ok(
+      m.useCases.includes('payroll') || m.useCases.includes('contractor-payout'),
+      `${m.id} is in default scope but lacks payroll/contractor-payout use-case`,
+    );
+  }
+  // Pure-AR rails must be excluded by default.
+  const ids = new Set(r.methods.map((m) => m.id));
+  assert.ok(!ids.has('in-rupay'), 'RuPay (invoice-collection only) should not appear in default scope');
+  assert.ok(!ids.has('us-zelle'), 'Zelle (p2p / invoice-collection only) should not appear in default scope');
+  assert.ok(!ids.has('nz-poli'), 'POLi (invoice-collection only) should not appear in default scope');
+});
+
+test('local_payment_methods country=IN returns NPCI / RBI rails', () => {
+  const r = localPaymentMethods({ country: 'IN' });
+  const ids = new Set(r.methods.map((m) => m.id));
+  for (const expected of ['in-upi', 'in-imps', 'in-neft', 'in-razorpay']) {
+    assert.ok(ids.has(expected), `expected ${expected} present`);
+  }
+});
+
+test('local_payment_methods country=AU includes PayID/PayTo/NPP and BECS direct entry', () => {
+  const r = localPaymentMethods({ country: 'AU' });
+  const ids = new Set(r.methods.map((m) => m.id));
+  for (const expected of ['au-payid', 'au-payto', 'au-npp', 'au-eft-direct-entry']) {
+    assert.ok(ids.has(expected), `expected ${expected} present`);
+  }
+  // BPAY is invoice-collection / b2b-supplier only; not in HelloTime's default scope.
+  assert.ok(!ids.has('au-bpay'), 'BPAY should not appear in default workforce-mgmt scope');
+});
+
+test('local_payment_methods country=AE returns WPS-SIF (only payroll rail)', () => {
+  const r = localPaymentMethods({ country: 'AE' });
+  assert.equal(r.count, 1);
+  assert.equal(r.methods[0]!.id, 'ae-wps-sif');
+  assert.equal(r.methods[0]!.helloProductSupport, 'roadmap');
+});
+
+test('local_payment_methods rail=instant filter works', () => {
+  const r = localPaymentMethods({ rail: 'instant' });
+  for (const m of r.methods) assert.equal(m.rail, 'instant');
+});
+
+test('local_payment_methods explicit useCase=invoice-collection widens beyond default', () => {
+  const r = localPaymentMethods({ useCase: 'invoice-collection' });
+  // Default scope would exclude RuPay / Zelle / POLi; explicit useCase brings them back.
+  const ids = new Set(r.methods.map((m) => m.id));
+  assert.ok(ids.has('in-rupay'));
+  assert.ok(ids.has('us-zelle'));
+  for (const m of r.methods) {
+    assert.ok(m.useCases.includes('invoice-collection'));
+  }
+});
+
+test('local_payment_methods id lookup returns single entry', () => {
+  const r = localPaymentMethods({ id: 'us-rtp' });
+  assert.equal(r.count, 1);
+  assert.equal(r.methods[0]!.name, 'RTP (Real-Time Payments)');
+  assert.equal(r.methods[0]!.authority, 'The Clearing House');
+});
+
+test('local_payment_methods every entry has a stable schema', () => {
+  const r = localPaymentMethods({});
+  for (const m of r.methods) {
+    assert.ok(typeof m.id === 'string' && m.id.length > 0);
+    assert.ok(typeof m.country === 'string' && m.country.length === 2);
+    assert.ok(typeof m.name === 'string' && m.name.length > 0);
+    assert.ok(['instant', 'same-day', 'next-day', 'multi-day'].includes(m.rail));
+    assert.ok(Array.isArray(m.useCases) && m.useCases.length > 0);
+    assert.ok(typeof m.authority === 'string' && m.authority.length > 0);
+  }
+});
+
+test('feature_search "UPI cap" surfaces the UPI payment-method entry', () => {
+  const r = featureSearch({ query: 'UPI cap' });
+  const hit = r.results.find((h) => h.source === 'payment-method' && h.id === 'in-upi');
+  assert.ok(hit, 'expected UPI payment-method hit for "UPI cap"');
+});
+
+test('feature_search "PayID instant" surfaces the AU PayID entry', () => {
+  const r = featureSearch({ query: 'PayID instant' });
+  const hit = r.results.find((h) => h.source === 'payment-method' && h.id === 'au-payid');
+  assert.ok(hit, 'expected PayID hit');
+});
+
+test('feature_search "BACS payroll" surfaces BACS Direct Credit', () => {
+  const r = featureSearch({ query: 'BACS payroll' });
+  const hit = r.results.find((h) => h.source === 'payment-method' && h.id === 'gb-bacs');
+  assert.ok(hit, 'expected BACS hit');
 });

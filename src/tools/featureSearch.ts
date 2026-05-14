@@ -4,10 +4,11 @@ import { FEATURES } from '../data/features.js';
 import { COUNTRY_SUPPORT } from '../data/countries.js';
 import { STATUTORY_RATES } from '../data/statutoryRates.js';
 import { COMPETITORS } from '../data/competitors.js';
+import { PAYMENT_METHODS, HELLOTIME_USE_CASES } from '../data/paymentMethods.js';
 
 export const featureSearchSchema = {
   query: z.string().min(2).max(120)
-    .describe('Free-text query, e.g. "geofence clock-in", "PF rate", "ESI threshold", "PT slab Maharashtra", "vs Truein", or "Deputy alternative".'),
+    .describe('Free-text query, e.g. "geofence clock-in", "PF rate", "ESI threshold", "PT slab Maharashtra", "vs Truein", "Deputy alternative", or "UPI payroll cap".'),
   limit: z.number().int().min(1).max(50).optional()
     .describe('Max results to return (default 20).'),
 };
@@ -18,7 +19,7 @@ export interface FeatureSearchArgs {
 }
 
 export interface FeatureSearchHit {
-  source: 'plan' | 'feature' | 'country-feature' | 'payroll-engine' | 'statutory-rate' | 'competitor';
+  source: 'plan' | 'feature' | 'country-feature' | 'payroll-engine' | 'statutory-rate' | 'competitor' | 'payment-method';
   id: string;
   label: string;
   description: string;
@@ -163,6 +164,26 @@ export function featureSearch(args: FeatureSearchArgs) {
         context: `${c.segment} (${c.tier})`,
         url: c.comparisonUrl ?? c.publicUrl,
         score: s,
+      });
+    }
+  }
+
+  // Payment-method matching: name + authority + notes form the haystack.
+  // Restricted to entries whose use-cases intersect HelloTime's scope so an
+  // unrelated p2p / pure-AR rail doesn't crowd payroll-relevant search results.
+  for (const m of PAYMENT_METHODS) {
+    if (!m.useCases.some((u) => HELLOTIME_USE_CASES.includes(u))) continue;
+    const blob = `${m.name} ${m.authority} ${m.notes?.join(' ') ?? ''}`;
+    const s = score(blob, terms);
+    if (s > 0) {
+      const supportNote = m.helloProductSupport ? ` · ${m.helloProductSupport}` : '';
+      hits.push({
+        source: 'payment-method',
+        id: m.id,
+        label: m.name,
+        description: `${m.rail} · ${m.authority} · ${m.useCases.join('/')}${supportNote}`,
+        context: m.country,
+        score: s + 1,
       });
     }
   }
