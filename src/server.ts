@@ -1,5 +1,5 @@
 /**
- * MCP server factory. Wires the 5 read-only tools and 2 resources.
+ * MCP server factory. Wires the read-only tools and resources.
  *
  * Read-only by construction: no tool returns the request author, mutates state,
  * or hits a customer-data system. The data sources in src/data/ are static
@@ -15,10 +15,11 @@ import { countrySupport, countrySupportSchema } from './tools/countrySupport.js'
 import { payrollCapabilities, payrollCapabilitiesSchema } from './tools/payrollCapabilities.js';
 import { featureSearch, featureSearchSchema } from './tools/featureSearch.js';
 import { statutoryRates, statutoryRatesSchema } from './tools/statutoryRates.js';
+import { listCompetitors, listCompetitorsSchema } from './tools/listCompetitors.js';
 import { RESOURCES, readResource } from './resources/index.js';
 
 const SERVER_NAME = 'hellotime-public';
-const SERVER_VERSION = '0.2.1';
+const SERVER_VERSION = '0.2.2';
 
 function asJsonContent(payload: unknown) {
   return {
@@ -70,7 +71,7 @@ export function createServer(): McpServer {
 
   server.tool(
     'feature_search',
-    'Free-text search across plan features, product features, country features, payroll engines, and statutory rates. Queries like "PF rate", "ESI threshold", or "PT slab Maharashtra" surface the matching statutory rate entry near the top.',
+    'Free-text search across plan features, product features, country features, payroll engines, statutory rates, and competitor positioning. Queries like "PF rate", "ESI threshold", "PT slab Maharashtra", "vs Truein", or "Deputy alternative" surface the matching entry near the top.',
     featureSearchSchema,
     async (args) => asJsonContent(featureSearch(args)),
   );
@@ -80,6 +81,13 @@ export function createServer(): McpServer {
     'Return statutory payroll-rate entries with rate, ceiling, slab, authority, and verification status. India block (PF / EPS / EDLI / PF admin / ESI / Professional Tax by state / TDS slabs) is internally-reviewed against EPFO / ESIC / state notifications. Australia and US entries are public-source-unreviewed. Filter by country, scheme, category, state, party, verification, or id.',
     statutoryRatesSchema,
     async (args) => asJsonContent(statutoryRates(args)),
+  );
+
+  server.tool(
+    'list_competitors',
+    'Return competitor positioning entries (Truein, Deputy, When I Work, Connecteam, Hubstaff, Keka) with where HelloTime wins, where the competitor wins, and pricing notes. Optional country, tier (primary / secondary), and id filters.',
+    listCompetitorsSchema,
+    async (args) => asJsonContent(listCompetitors(args)),
   );
 
   // Resources
@@ -96,5 +104,5 @@ export function createServer(): McpServer {
 }
 
 // Re-exports useful for tests
-export { listPlans, listFeatures, countrySupport, payrollCapabilities, featureSearch, statutoryRates };
+export { listPlans, listFeatures, countrySupport, payrollCapabilities, featureSearch, statutoryRates, listCompetitors };
 export const _internal = { z };
