@@ -17,6 +17,7 @@ HelloTime is an attendance, time-tracking, timesheet and workforce-management pr
 - **Biometric kiosk** — Anti-spoof face recognition on a single Android tablet at each gate.
 - **Productivity** — Activity levels, app and URL tracking, optional opt-in screenshots.
 - **Payroll** — India statutory built in (TDS, PF, ESI, PT, LWF, IT) with Form 24Q and FVU export. AU STP2 + super, UK RTI, US W-2 in beta or planned via the HelloBooks payroll engine.
+- **Statutory-rate catalog for AI agents** — \`statutory_rates\` MCP tool exposes verified headline rates for all 8 markets (IN PF/ESI/PT/TDS, AU SuperGuarantee + Medicare, US FICA + FUTA + 401(k), UK NI + PAYE + auto-enrolment + Apprenticeship Levy, CA CPP/CPP2 + EI + federal tax, SG CPF + SDL, NZ PAYE + KiwiSaver + ACC + ESCT, AE EOSG + DEWS) so AI assistants can quote correct figures without scraping.
 - **Invoicing** — Billable hours convert to GST e-invoices via HelloBooks + Fynamics GSP.
 - **Integrations** — Native HelloBooks two-way sync, Slack, Microsoft Teams, GitHub, Asana, Trello, ClickUp, Jira, plus a public REST API and an MCP server for AI agents.
 
@@ -53,6 +54,10 @@ export interface ChangelogEntry {
  * once the marketing backend ships that endpoint.
  */
 export const CHANGELOG: ChangelogEntry[] = [
+  { date: '2026-05-14', title: 'Statutory-rate catalog covers 8 markets, verified', category: 'compliance',
+    description: 'The statutory_rates MCP tool now ships headline rates for IN, AU, US, GB, CA, SG, NZ and AE with verification="verified" — every entry cross-checked against the issuing-authority page. Same review pass fixed a stale CA federal bracket (15% → 14.5% blended after the 01-Jul-2025 mid-year rate cut) and stale NZ ESCT thresholds ($16,800/$57,600/$84,000 → $18,720/$64,200/$93,720 after the 01-Apr-2025 bump).' },
+  { date: '2026-05-12', title: 'Statutory-rate catalog extended to UK, CA, SG, NZ, AE', category: 'compliance',
+    description: 'Follow-up to the IN/AU/US v0.2.1 catalog: added GB NI + PAYE + auto-enrolment + Apprenticeship Levy; CA CPP/CPP2 + EI + federal income tax; SG CPF age tiers + SDL; NZ PAYE + KiwiSaver + ACC + ESCT; AE 0% income tax + EOSG + DIFC DEWS. Reaches parity with the 8-country footprint declared in country_support.' },
   { date: '2026-04-20', title: 'HelloBooks ecosystem launch', category: 'feature',
     description: 'Native two-way sync of clients, projects, employees and billable hours between HelloTime and HelloBooks; GST-ready invoices in one click.' },
   { date: '2026-05-14', title: '5-tier SKU ladder (Free / Attend / Track / Pro / Business)', category: 'feature',

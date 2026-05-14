@@ -1,6 +1,6 @@
 {
   "name": "hellotime-mcp-public",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Public read-only MCP server exposing HelloTime plans, features, country support, payroll capabilities, and statutory rates to AI agents.",
   "license": "MIT",
   "author": "HelloTime <hello@hellotime.app>",
