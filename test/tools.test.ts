@@ -209,37 +209,91 @@ test('statutory_rates Karnataka PT has ₹25k exemption note from 01-04-2025', (
   assert.equal(exempt.upTo, 25000);
 });
 
-test('statutory_rates AU Super Guarantee shipping at 12% for FY 2025-26 (public-source-unreviewed)', () => {
+test('statutory_rates AU Super Guarantee FY 2025-26 is 12% and now internally verified', () => {
   const sg = statutoryRates({ id: 'au-super-guarantee-fy2526' }).rates[0]!;
   assert.equal(sg.rate, 0.12);
   assert.equal(sg.party, 'employer');
-  assert.equal(sg.verification, 'public-source-unreviewed');
+  assert.equal(sg.verification, 'verified');
   assert.equal(sg.currency, 'AUD');
+  // FY 2025-26 MSCB ($62,500/qtr) is documented in notes after the 2026-05-14 review.
+  assert.ok(sg.notes?.some((n) => n.includes('$62,500')), 'expected FY 2025-26 MSCB note');
+});
+
+test('statutory_rates AU Super Guarantee FY 2024-25 is 11.5% with $65,070/qtr MSCB note', () => {
+  const sg = statutoryRates({ id: 'au-super-guarantee-fy2425' }).rates[0]!;
+  assert.equal(sg.rate, 0.115);
+  assert.equal(sg.verification, 'verified');
+  assert.ok(sg.notes?.some((n) => n.includes('$65,070')), 'expected FY 2024-25 MSCB note');
 });
 
 test('statutory_rates US FICA SS at 6.2% + Medicare 1.45%, with 2025 SS wage base', () => {
   const ss = statutoryRates({ id: 'us-fica-social-security-employee-2025' }).rates[0]!;
   assert.equal(ss.rate, 0.062);
   assert.equal(ss.wageCeiling, 176100);
+  assert.equal(ss.verification, 'verified');
   const med = statutoryRates({ id: 'us-fica-medicare-employee' }).rates[0]!;
   assert.equal(med.rate, 0.0145);
   // Medicare has no wage base cap
   assert.equal(med.wageCeiling, undefined);
+  assert.equal(med.verification, 'verified');
 });
 
-test('statutory_rates verification=verified excludes AU+US rates', () => {
+test('statutory_rates US FICA SS 2026 wage base is $184,500 (rolled over from 2025)', () => {
+  const ss = statutoryRates({ id: 'us-fica-social-security-employee-2026' }).rates[0]!;
+  assert.equal(ss.rate, 0.062);
+  assert.equal(ss.wageCeiling, 184500);
+  assert.equal(ss.effectiveFrom, '2026-01-01');
+  assert.equal(ss.verification, 'verified');
+});
+
+test('statutory_rates US FUTA 2025 credit-reduction note lists California + USVI', () => {
+  const futa = statutoryRates({ id: 'us-futa-2025' }).rates[0]!;
+  assert.equal(futa.rate, 0.06);
+  assert.equal(futa.wageCeiling, 7000);
+  const noteBlob = (futa.notes ?? []).join(' ');
+  assert.match(noteBlob, /California/);
+  assert.match(noteBlob, /Virgin Islands/);
+});
+
+test('statutory_rates US 401(k) limits — 2025 $23,500 + 2026 $24,500 + SECURE 2.0 $11,250 60-63 catch-up', () => {
+  const y25 = statutoryRates({ id: 'us-401k-elective-deferral-2025' }).rates[0]!;
+  assert.equal(y25.flatAmount, 23500);
+  assert.ok((y25.notes ?? []).some((n) => n.includes('$11,250')), 'expected SECURE 2.0 60-63 super catch-up note on 2025 entry');
+  const y26 = statutoryRates({ id: 'us-401k-elective-deferral-2026' }).rates[0]!;
+  assert.equal(y26.flatAmount, 24500);
+  assert.equal(y26.effectiveFrom, '2026-01-01');
+  assert.ok((y26.notes ?? []).some((n) => n.includes('$11,250')), 'expected SECURE 2.0 60-63 super catch-up note on 2026 entry');
+});
+
+test('statutory_rates verification=verified now includes AU + US after the 2026-05-14 review pass', () => {
   const r = statutoryRates({ verification: 'verified' });
+  const countries = new Set(r.rates.map((x) => x.country));
+  // After the AU/US review pass, every verified row's verification is still 'verified'
+  // and the set now spans all three countries (the only remaining unreviewed entries are IN TDS slabs).
   for (const x of r.rates) {
     assert.equal(x.verification, 'verified');
-    assert.equal(x.country, 'IN'); // only IN PF/ESI/PT are verified
+  }
+  for (const c of ['IN', 'AU', 'US']) {
+    assert.ok(countries.has(c as never), `expected verified ${c} entries after the AU/US review pass`);
+  }
+});
+
+test('statutory_rates verification=public-source-unreviewed is the IN TDS holdout only', () => {
+  const r = statutoryRates({ verification: 'public-source-unreviewed' });
+  for (const x of r.rates) {
+    assert.equal(x.verification, 'public-source-unreviewed');
+    assert.equal(x.country, 'IN');
+    assert.equal(x.scheme, 'TDS');
   }
 });
 
 test('statutory_rates count breakdown (verifiedCount + unreviewedCount = count)', () => {
   const r = statutoryRates({});
   assert.equal(r.verifiedCount + r.unreviewedCount, r.count);
-  // Verified set should at least cover PF/EPS/EDLI/PFAdmin/ESI/×2 + 7 PT states = 12
-  assert.ok(r.verifiedCount >= 12, `expected >=12 verified entries, got ${r.verifiedCount}`);
+  // Verified set covers: IN PF/EPS/EDLI/PFAdmin/ESI×2 (7) + 7 PT states + 3 AU + 8 US = 25.
+  assert.ok(r.verifiedCount >= 25, `expected >=25 verified entries, got ${r.verifiedCount}`);
+  // The only remaining unreviewed entries are the IN TDS slabs (currently 2 — new + old regime).
+  assert.equal(r.unreviewedCount, 2);
 });
 
 test('feature_search "PF rate" surfaces the EPF statutory rate entry', () => {

@@ -18,7 +18,7 @@ const CATEGORIES: StatutoryCategory[] = [
 
 export const statutoryRatesSchema = {
   country: z.enum(['IN', 'AU', 'US']).optional()
-    .describe('Filter to one country. IN is the comprehensively-verified block; AU and US are public-source-unreviewed.'),
+    .describe('Filter to one country. IN PF/ESI/PT, AU super/Medicare, and US FICA/FUTA/401(k) are internally verified against the issuing authority; the IN TDS slab entries ship as public-source-unreviewed pending the annual Finance Act review pass.'),
   scheme: z.string().optional()
     .describe('Match a scheme key like "PF", "ESI", "PT", "TDS", "SuperGuarantee", "FICA-SS", "FICA-Medicare", "FUTA", "401k", "MedicareLevy". Case-insensitive substring match.'),
   category: z.enum(CATEGORIES as [StatutoryCategory, ...StatutoryCategory[]])

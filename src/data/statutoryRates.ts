@@ -10,11 +10,21 @@
  *   - State PT notifications (Maharashtra, Karnataka, West Bengal, Tamil
  *     Nadu / GCC, Gujarat, Telangana, Andhra Pradesh)
  *
- * AU and US blocks are sourced from public government pages but have NOT
- * been through the same internal review pass as the IN block — they ship
- * with `verification: 'public-source-unreviewed'`. The audit field is
- * surfaced through the tool response so an AI agent (or its operator) knows
- * which rates are HelloTime-vouched vs. public-source verbatim.
+ * The AU block was reviewed 2026-05-14 against:
+ *   - ATO key superannuation rates and thresholds (Super Guarantee + MSCB)
+ *   - ATO Medicare Levy page (2% rate since 01-07-2014, low-income thresholds)
+ *
+ * The US block was reviewed 2026-05-14 against:
+ *   - SSA Contribution and Benefit Base table (ssa.gov/oact/cola/cbb.html) —
+ *     2025 = $176,100, 2026 = $184,500 per SSA COLA announcement
+ *   - IRS Topic 751 (FICA Social Security / Medicare rates)
+ *   - IRS Topic 560 + Form 8959 instructions (Additional Medicare Tax 0.9%
+ *     employer withholding threshold $200,000, employee filing-status
+ *     thresholds vary)
+ *   - DOL Schedule A (Form 940) for tax-year 2025 — credit-reduction states
+ *     are California (0.6% addl, total 1.2%) and US Virgin Islands (4.5% addl)
+ *   - IRS Notice 2025-67 (2026 401(k) elective deferral cap $24,500 +
+ *     SECURE 2.0 age-60-63 catch-up $11,250 unchanged from 2025)
  *
  * Public-only data: no customer references, no internal hostnames, no auth.
  */
@@ -413,12 +423,12 @@ const IN_INCOME_TAX: StatutoryRate[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// Australia — public-source-unreviewed. Headline rates from ATO; the surface
-// here is intentionally minimal until an internal review pass.
+// Australia — verified 2026-05-14 against the ATO key superannuation and
+// Medicare Levy pages.
 // ---------------------------------------------------------------------------
 
-const AU_UNREVIEWED = {
-  verification: 'public-source-unreviewed' as const,
+const AU_VERIFIED = {
+  verification: 'verified' as const,
   lastReviewed: '2026-05-14',
   currency: 'AUD',
 };
@@ -437,10 +447,10 @@ const AU_RATES: StatutoryRate[] = [
     authority: 'ATO',
     source: 'https://www.ato.gov.au/rates/key-superannuation-rates-and-thresholds/',
     effectiveFrom: '2025-07-01',
-    ...AU_UNREVIEWED,
+    ...AU_VERIFIED,
     notes: [
-      'Stepped up from 11.5% in FY 2024-25 per the legislated schedule (Super Guarantee (Administration) Act 1992 amendments).',
-      'Maximum Super Contribution Base is set quarterly — confirm against the ATO key rates page.',
+      'Final scheduled increase from 11.5% in FY 2024-25 per the legislated schedule (Super Guarantee (Administration) Act 1992 amendments).',
+      'Maximum Super Contribution Base FY 2025-26 is $62,500 per quarter (down from $65,070 in FY 2024-25 — the cap is indexed to AWOTE but was reset alongside the rate step-up to 12%). Max employer SG = $7,500/quarter per employee.',
     ],
   },
   {
@@ -456,8 +466,8 @@ const AU_RATES: StatutoryRate[] = [
     authority: 'ATO',
     source: 'https://www.ato.gov.au/rates/key-superannuation-rates-and-thresholds/',
     effectiveFrom: '2024-07-01',
-    ...AU_UNREVIEWED,
-    notes: ['Maximum Super Contribution Base FY 2024-25 is $65,070 per quarter.'],
+    ...AU_VERIFIED,
+    notes: ['Maximum Super Contribution Base FY 2024-25 is $65,070 per quarter; max employer SG = $7,483.05/quarter per employee.'],
   },
   {
     id: 'au-medicare-levy',
@@ -472,21 +482,20 @@ const AU_RATES: StatutoryRate[] = [
     authority: 'ATO',
     source: 'https://www.ato.gov.au/individuals-and-families/medicare-and-private-health-insurance/medicare-levy',
     effectiveFrom: '2014-07-01',
-    ...AU_UNREVIEWED,
+    ...AU_VERIFIED,
     notes: [
-      'Low-income reduction thresholds change each Federal Budget — confirm against the ATO page for the relevant year.',
+      'FY 2025-26 low-income thresholds: $28,011 singles, $47,238 families, $44,268 single seniors/pensioners. In the shade-in range, levy is 10% of income above the lower threshold rather than the full 2%.',
       'Medicare Levy Surcharge (1–1.5%) applies separately for higher-income earners without private hospital cover.',
     ],
   },
 ];
 
 // ---------------------------------------------------------------------------
-// United States — public-source-unreviewed. Headline federal rates for 2025
-// from IRS / SSA / DOL.
+// United States — verified 2026-05-14 against IRS / SSA / DOL.
 // ---------------------------------------------------------------------------
 
-const US_UNREVIEWED = {
-  verification: 'public-source-unreviewed' as const,
+const US_VERIFIED = {
+  verification: 'verified' as const,
   lastReviewed: '2026-05-14',
   currency: 'USD',
 };
@@ -506,8 +515,8 @@ const US_RATES: StatutoryRate[] = [
     authority: 'SSA / IRS',
     source: 'https://www.ssa.gov/oact/cola/cbb.html',
     effectiveFrom: '2025-01-01',
-    ...US_UNREVIEWED,
-    notes: ['Social Security wage base is adjusted annually for inflation by SSA.'],
+    ...US_VERIFIED,
+    notes: ['Social Security wage base is adjusted annually for inflation by SSA. 2026 base = $184,500 (see us-fica-social-security-employee-2026).'],
   },
   {
     id: 'us-fica-social-security-employer-2025',
@@ -523,7 +532,40 @@ const US_RATES: StatutoryRate[] = [
     authority: 'SSA / IRS',
     source: 'https://www.ssa.gov/oact/cola/cbb.html',
     effectiveFrom: '2025-01-01',
-    ...US_UNREVIEWED,
+    ...US_VERIFIED,
+  },
+  {
+    id: 'us-fica-social-security-employee-2026',
+    country: 'US',
+    scheme: 'FICA-SS',
+    label: 'FICA Social Security — employee (2026)',
+    category: 'social-security',
+    party: 'employee',
+    rateType: 'percentage',
+    rate: 0.062,
+    appliedTo: 'Wages up to the Social Security wage base',
+    wageCeiling: 184500,
+    authority: 'SSA / IRS',
+    source: 'https://www.ssa.gov/oact/cola/cbb.html',
+    effectiveFrom: '2026-01-01',
+    ...US_VERIFIED,
+    notes: ['Wage base $184,500 announced in the SSA 2026 COLA fact sheet — up 4.77% from $176,100 in 2025. Max employee contribution = $11,439.00.'],
+  },
+  {
+    id: 'us-fica-social-security-employer-2026',
+    country: 'US',
+    scheme: 'FICA-SS',
+    label: 'FICA Social Security — employer (2026)',
+    category: 'social-security',
+    party: 'employer',
+    rateType: 'percentage',
+    rate: 0.062,
+    appliedTo: 'Wages up to the Social Security wage base',
+    wageCeiling: 184500,
+    authority: 'SSA / IRS',
+    source: 'https://www.ssa.gov/oact/cola/cbb.html',
+    effectiveFrom: '2026-01-01',
+    ...US_VERIFIED,
   },
   {
     id: 'us-fica-medicare-employee',
@@ -538,8 +580,11 @@ const US_RATES: StatutoryRate[] = [
     authority: 'IRS',
     source: 'https://www.irs.gov/taxtopics/tc751',
     effectiveFrom: '1986-01-01',
-    ...US_UNREVIEWED,
-    notes: ['Additional Medicare tax of 0.9% applies on employee wages over $200,000 in a calendar year (single filer threshold).'],
+    ...US_VERIFIED,
+    notes: [
+      'Additional Medicare Tax of 0.9% applies on wages above thresholds set by IRC §3101(b)(2). Employers must withhold once an employee\'s wages exceed $200,000 in a calendar year, regardless of the employee\'s filing status.',
+      'Employee tax-due thresholds vary by filing status: $200,000 single / head of household / qualifying widow(er); $250,000 married filing jointly; $125,000 married filing separately. Reconciled on Form 8959.',
+    ],
   },
   {
     id: 'us-fica-medicare-employer',
@@ -554,7 +599,8 @@ const US_RATES: StatutoryRate[] = [
     authority: 'IRS',
     source: 'https://www.irs.gov/taxtopics/tc751',
     effectiveFrom: '1986-01-01',
-    ...US_UNREVIEWED,
+    ...US_VERIFIED,
+    notes: ['No employer match for the 0.9% Additional Medicare Tax — employee-only.'],
   },
   {
     id: 'us-futa-2025',
@@ -569,11 +615,11 @@ const US_RATES: StatutoryRate[] = [
     wageCeiling: 7000,
     authority: 'IRS',
     source: 'https://www.irs.gov/businesses/small-businesses-self-employed/federal-unemployment-tax',
-    effectiveFrom: '2011-01-01',
-    ...US_UNREVIEWED,
+    effectiveFrom: '2011-07-01',
+    ...US_VERIFIED,
     notes: [
-      'Most employers get a 5.4% state-unemployment-credit, reducing the effective FUTA rate to 0.6% on the first $7,000.',
-      'Credit reduction states (where the state borrowed from the federal trust) face a higher effective rate — confirm the current credit-reduction list each January.',
+      'Most employers get a 5.4% state-unemployment-credit, reducing the effective FUTA rate to 0.6% on the first $7,000 per employee per year.',
+      'Tax-year 2025 credit-reduction jurisdictions (per DOL / IRS Schedule A, Form 940 for 2025): California (0.6% additional → effective 1.2%) and US Virgin Islands (4.5% additional → effective 5.1%). Connecticut and New York repaid before the 10-Nov-2025 cutoff and avoided reduction. The list is republished each January for the prior tax year — reconcile against the current Schedule A before filing.',
     ],
   },
   {
@@ -589,10 +635,29 @@ const US_RATES: StatutoryRate[] = [
     authority: 'IRS',
     source: 'https://www.irs.gov/retirement-plans/plan-participant-employee/retirement-topics-401k-and-profit-sharing-plan-contribution-limits',
     effectiveFrom: '2025-01-01',
-    ...US_UNREVIEWED,
+    ...US_VERIFIED,
     notes: [
-      'Note: flatAmount is the ANNUAL cap, not a per-pay-period deduction.',
-      'Catch-up contribution +$7,500 for age 50+; SECURE 2.0 special catch-up +$11,250 for ages 60–63 in 2025.',
+      'flatAmount is the ANNUAL cap, not a per-pay-period deduction.',
+      'Standard catch-up +$7,500 for age 50+; SECURE 2.0 super catch-up +$11,250 for ages 60–63 (greater of $10,000 indexed or 150% of the 2024 regular catch-up = $11,250).',
+    ],
+  },
+  {
+    id: 'us-401k-elective-deferral-2026',
+    country: 'US',
+    scheme: '401k',
+    label: '401(k) elective deferral limit (2026)',
+    category: 'pension',
+    party: 'employee',
+    rateType: 'flat-monthly',
+    flatAmount: 24500,
+    appliedTo: 'Annual employee elective deferral cap (not per period)',
+    authority: 'IRS',
+    source: 'https://www.irs.gov/newsroom/401k-limit-increases-to-24500-for-2026-ira-limit-increases-to-7500',
+    effectiveFrom: '2026-01-01',
+    ...US_VERIFIED,
+    notes: [
+      '2026 limits per IRS Notice 2025-67: elective deferral $24,500; standard age-50+ catch-up $8,000; SECURE 2.0 age-60-63 super catch-up $11,250 (unchanged from 2025 — the formula is greater of $10,000 indexed or 150% of the 2024 catch-up, neither pushed above $11,250 for 2026).',
+      'SECURE 2.0 Roth-mandate for high earners begins 2026: catch-up contributions by employees with >$150,000 of FICA wages from the sponsoring employer in the prior year must be made on a Roth basis. If the plan does not offer Roth, the affected employees cannot make catch-up contributions.',
     ],
   },
 ];
