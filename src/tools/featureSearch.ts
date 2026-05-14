@@ -123,6 +123,8 @@ export function featureSearch(args: FeatureSearchArgs) {
         valueText = `${(r.rate * 100).toFixed(2).replace(/\.00$/, '')}%`;
       } else if (r.rateType === 'flat-monthly' && r.flatAmount !== undefined) {
         valueText = `${r.currency} ${r.flatAmount.toLocaleString('en-US')}`;
+      } else if (r.rateType === 'flat-period' && r.flatAmount !== undefined) {
+        valueText = `${r.currency} ${r.flatAmount.toLocaleString('en-US')}/${r.period ?? 'period'}`;
       } else if (r.rateType === 'slab') {
         valueText = `${r.slabs?.length ?? 0} slabs`;
       }
