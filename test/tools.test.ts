@@ -6,6 +6,7 @@ import { listFeatures } from '../src/tools/listFeatures.js';
 import { countrySupport } from '../src/tools/countrySupport.js';
 import { payrollCapabilities } from '../src/tools/payrollCapabilities.js';
 import { featureSearch } from '../src/tools/featureSearch.js';
+import { statutoryRates } from '../src/tools/statutoryRates.js';
 
 test('list_plans returns all 5 tiers when unfiltered', () => {
   const r = listPlans({});
@@ -147,4 +148,117 @@ test('feature_search finds India statutory engines (PF / ESI)', () => {
 test('feature_search respects limit', () => {
   const r = featureSearch({ query: 'tracking', limit: 3 });
   assert.ok(r.results.length <= 3);
+});
+
+test('statutory_rates returns the IN PF/ESI/PT/TDS block when filtered country=IN', () => {
+  const r = statutoryRates({ country: 'IN' });
+  const schemes = new Set(r.rates.map((x) => x.scheme));
+  for (const s of ['EPF', 'EPS', 'EDLI', 'PFAdmin', 'ESI', 'PT', 'TDS']) {
+    assert.ok(schemes.has(s), `expected scheme ${s} present`);
+  }
+  // All IN entries from the calculator are verified (PF/ESI/PT). TDS may be unreviewed.
+  const verifiedSchemes = r.rates.filter((x) => x.verification === 'verified').map((x) => x.scheme);
+  for (const s of ['EPF', 'EPS', 'EDLI', 'ESI', 'PT']) {
+    assert.ok(verifiedSchemes.includes(s), `expected ${s} to be internally verified`);
+  }
+});
+
+test('statutory_rates PF employee/employer rates match the EPFO calculator', () => {
+  const r = statutoryRates({ country: 'IN', scheme: 'EPF' });
+  const employee = r.rates.find((x) => x.id === 'in-pf-employee');
+  const employer = r.rates.find((x) => x.id === 'in-pf-employer-total');
+  assert.ok(employee && employer);
+  assert.equal(employee.rate, 0.12);
+  assert.equal(employer.rate, 0.12);
+  assert.equal(employee.wageCeiling, 15000);
+});
+
+test('statutory_rates EPS is 8.33% capped at PF ceiling', () => {
+  const eps = statutoryRates({ id: 'in-eps' }).rates[0]!;
+  assert.equal(eps.rate, 0.0833);
+  assert.equal(eps.wageCeiling, 15000);
+  assert.equal(eps.party, 'employer');
+});
+
+test('statutory_rates ESI is 0.75% employee + 3.25% employer, applies only if gross ≤ ₹21,000', () => {
+  const employee = statutoryRates({ id: 'in-esi-employee' }).rates[0]!;
+  const employer = statutoryRates({ id: 'in-esi-employer' }).rates[0]!;
+  assert.equal(employee.rate, 0.0075);
+  assert.equal(employer.rate, 0.0325);
+  assert.equal(employee.applicableIfGrossLte, 21000);
+  assert.equal(employer.applicableIfGrossLte, 21000);
+});
+
+test('statutory_rates Maharashtra PT has 3 slabs with Feb ₹300 quirk note', () => {
+  const r = statutoryRates({ state: 'Maharashtra' });
+  const mh = r.rates.find((x) => x.id === 'in-pt-maharashtra');
+  assert.ok(mh);
+  assert.equal(mh.rateType, 'slab');
+  assert.equal(mh.slabs?.length, 3);
+  // Highest slab (no upper bound) is ₹200/mo with Feb ₹300 quirk
+  const top = mh.slabs!.find((s) => s.upTo === null)!;
+  assert.equal(top.amount, 200);
+  assert.match(top.note ?? '', /February|₹300/i);
+});
+
+test('statutory_rates Karnataka PT has ₹25k exemption note from 01-04-2025', () => {
+  const ka = statutoryRates({ state: 'Karnataka' }).rates[0]!;
+  assert.equal(ka.id, 'in-pt-karnataka');
+  assert.equal(ka.effectiveFrom, '2025-04-01');
+  const exempt = ka.slabs!.find((s) => s.amount === 0)!;
+  assert.equal(exempt.upTo, 25000);
+});
+
+test('statutory_rates AU Super Guarantee shipping at 12% for FY 2025-26 (public-source-unreviewed)', () => {
+  const sg = statutoryRates({ id: 'au-super-guarantee-fy2526' }).rates[0]!;
+  assert.equal(sg.rate, 0.12);
+  assert.equal(sg.party, 'employer');
+  assert.equal(sg.verification, 'public-source-unreviewed');
+  assert.equal(sg.currency, 'AUD');
+});
+
+test('statutory_rates US FICA SS at 6.2% + Medicare 1.45%, with 2025 SS wage base', () => {
+  const ss = statutoryRates({ id: 'us-fica-social-security-employee-2025' }).rates[0]!;
+  assert.equal(ss.rate, 0.062);
+  assert.equal(ss.wageCeiling, 176100);
+  const med = statutoryRates({ id: 'us-fica-medicare-employee' }).rates[0]!;
+  assert.equal(med.rate, 0.0145);
+  // Medicare has no wage base cap
+  assert.equal(med.wageCeiling, undefined);
+});
+
+test('statutory_rates verification=verified excludes AU+US rates', () => {
+  const r = statutoryRates({ verification: 'verified' });
+  for (const x of r.rates) {
+    assert.equal(x.verification, 'verified');
+    assert.equal(x.country, 'IN'); // only IN PF/ESI/PT are verified
+  }
+});
+
+test('statutory_rates count breakdown (verifiedCount + unreviewedCount = count)', () => {
+  const r = statutoryRates({});
+  assert.equal(r.verifiedCount + r.unreviewedCount, r.count);
+  // Verified set should at least cover PF/EPS/EDLI/PFAdmin/ESI/×2 + 7 PT states = 12
+  assert.ok(r.verifiedCount >= 12, `expected >=12 verified entries, got ${r.verifiedCount}`);
+});
+
+test('feature_search "PF rate" surfaces the EPF statutory rate entry', () => {
+  const r = featureSearch({ query: 'PF rate' });
+  const hit = r.results.find((h) => h.source === 'statutory-rate' && h.id === 'in-pf-employee');
+  assert.ok(hit, 'expected an EPF rate hit');
+  assert.match(hit.description, /12%/);
+});
+
+test('feature_search "PT slab Maharashtra" routes to Maharashtra PT entry', () => {
+  const r = featureSearch({ query: 'PT slab Maharashtra' });
+  const hit = r.results.find((h) => h.source === 'statutory-rate' && h.id === 'in-pt-maharashtra');
+  assert.ok(hit, 'expected Maharashtra PT hit');
+});
+
+test('feature_search "Super Guarantee" routes to AU super entries', () => {
+  const r = featureSearch({ query: 'Super Guarantee' });
+  const hits = r.results.filter((h) => h.source === 'statutory-rate' && h.scheme !== undefined ? true : (h.id?.startsWith('au-super') ?? false));
+  // At least one AU super hit
+  const auSuper = r.results.find((h) => h.source === 'statutory-rate' && h.id.startsWith('au-super'));
+  assert.ok(auSuper, 'expected AU Super Guarantee hit');
 });
