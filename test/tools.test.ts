@@ -579,3 +579,95 @@ test('feature_search "End of Service Gratuity" routes to AE EOSG entries', () =>
   const hit = r.results.find((h) => h.source === 'statutory-rate' && h.id.startsWith('ae-eosg'));
   assert.ok(hit, 'expected AE EOSG hit');
 });
+
+// ---------------------------------------------------------------------------
+// STUB-closing additions: CA Ontario + Alberta, GB Scotland, SG SPR, AE legacy
+// ---------------------------------------------------------------------------
+
+test('statutory_rates CA Ontario provincial tax — 5 brackets 5.05/9.15/11.16/12.16/13.16', () => {
+  const on = statutoryRates({ id: 'ca-on-income-tax-2025' }).rates[0]!;
+  assert.equal(on.state, 'Ontario');
+  assert.equal(on.country, 'CA');
+  assert.equal(on.rateType, 'slab');
+  const rates = on.slabs!.map((s) => s.rate);
+  assert.deepEqual(rates, [0.0505, 0.0915, 0.1116, 0.1216, 0.1316]);
+  // First two thresholds indexed annually; $150k and $220k frozen.
+  assert.equal(on.slabs!.find((s) => s.upTo === 52886)!.rate, 0.0505);
+  assert.equal(on.slabs!.find((s) => s.upTo === 220000)!.rate, 0.1216);
+});
+
+test('statutory_rates CA Alberta provincial tax — new 6-bracket structure with 8% on first $60k', () => {
+  const ab = statutoryRates({ id: 'ca-ab-income-tax-2025' }).rates[0]!;
+  assert.equal(ab.state, 'Alberta');
+  assert.equal(ab.rateType, 'slab');
+  // First bracket is the new 8% on $60,000 introduced 01-Jan-2025.
+  const first = ab.slabs!.find((s) => s.upTo === 60000)!;
+  assert.equal(first.rate, 0.08);
+  // Top is 15% with no upper bound.
+  const top = ab.slabs!.find((s) => s.upTo === null)!;
+  assert.equal(top.rate, 0.15);
+  assert.equal(ab.slabs?.length, 6);
+});
+
+test('statutory_rates GB Scotland (SRIT) has 7 slabs including 19% starter and 48% top', () => {
+  const srit = statutoryRates({ id: 'gb-scottish-income-tax-2025' }).rates[0]!;
+  assert.equal(srit.scheme, 'SRIT');
+  assert.equal(srit.country, 'GB');
+  assert.equal(srit.rateType, 'slab');
+  // 7 slabs = PA (0%) + 6 SRIT bands
+  assert.equal(srit.slabs?.length, 7);
+  assert.equal(srit.slabs!.find((s) => s.upTo === 12570)!.rate, 0);
+  assert.equal(srit.slabs!.find((s) => s.upTo === 14876)!.rate, 0.19);
+  assert.equal(srit.slabs!.find((s) => s.upTo === null)!.rate, 0.48);
+  // Source must point at gov.scot
+  assert.match(srit.source, /gov\.scot/);
+});
+
+test('statutory_rates SG SPR 1st year G/G under-55 = 4% employer + 5% employee = 9%', () => {
+  const er = statutoryRates({ id: 'sg-cpf-spr-y1-gg-employer-under-55-2025' }).rates[0]!;
+  const ee = statutoryRates({ id: 'sg-cpf-spr-y1-gg-employee-under-55-2025' }).rates[0]!;
+  assert.equal(er.rate, 0.04);
+  assert.equal(ee.rate, 0.05);
+  assert.equal(er.wageCeiling, 7400);
+  // Combined matches well-known 9% SPR 1st-year total
+  assert.equal(Math.round((er.rate! + ee.rate!) * 1000) / 1000, 0.09);
+});
+
+test('statutory_rates SG SPR 2nd year G/G under-55 = 9% employer + 15% employee = 24%', () => {
+  const er = statutoryRates({ id: 'sg-cpf-spr-y2-gg-employer-under-55-2025' }).rates[0]!;
+  const ee = statutoryRates({ id: 'sg-cpf-spr-y2-gg-employee-under-55-2025' }).rates[0]!;
+  assert.equal(er.rate, 0.09);
+  assert.equal(ee.rate, 0.15);
+  // Combined matches well-known 24% SPR 2nd-year total
+  assert.equal(Math.round((er.rate! + ee.rate!) * 1000) / 1000, 0.24);
+});
+
+test('statutory_rates AE legacy gratuity — unlimited resignation 1-3yr = 1/3, 3-5yr = 2/3 of 21-day rate', () => {
+  const tier13 = statutoryRates({ id: 'ae-eosg-legacy-unlimited-resignation-1-3yr' }).rates[0]!;
+  const tier35 = statutoryRates({ id: 'ae-eosg-legacy-unlimited-resignation-3-5yr' }).rates[0]!;
+  // Standard 21-day rate ≈ 5.75%; 1/3 → 1.918%, 2/3 → 3.836%
+  assert.equal(tier13.rate, 0.01918);
+  assert.equal(tier35.rate, 0.03836);
+  assert.equal(tier13.category, 'end-of-service');
+  // Both must flag this is HISTORICAL / superseded
+  assert.match(tier13.notes?.join(' ') ?? '', /HISTORICAL|superseded|02-Feb-2022/i);
+  assert.match(tier35.notes?.join(' ') ?? '', /HISTORICAL|superseded|02-Feb-2022/i);
+});
+
+test('feature_search "Ontario tax" surfaces the ON provincial entry', () => {
+  const r = featureSearch({ query: 'Ontario tax' });
+  const hit = r.results.find((h) => h.source === 'statutory-rate' && h.id === 'ca-on-income-tax-2025');
+  assert.ok(hit, 'expected Ontario provincial-tax hit');
+});
+
+test('feature_search "Scottish income tax" routes to SRIT entry', () => {
+  const r = featureSearch({ query: 'Scottish income tax' });
+  const hit = r.results.find((h) => h.source === 'statutory-rate' && h.id === 'gb-scottish-income-tax-2025');
+  assert.ok(hit, 'expected SRIT hit');
+});
+
+test('feature_search "SPR CPF" surfaces a SG SPR graduated entry', () => {
+  const r = featureSearch({ query: 'SPR CPF' });
+  const hit = r.results.find((h) => h.source === 'statutory-rate' && h.id.startsWith('sg-cpf-spr-'));
+  assert.ok(hit, 'expected SG SPR graduated CPF hit');
+});
