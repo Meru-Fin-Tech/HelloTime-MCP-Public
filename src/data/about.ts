@@ -5,7 +5,7 @@
 
 export const ABOUT_MARKDOWN = `# HelloTime
 
-HelloTime is a time-tracking, timesheet and workforce-management product built by Meru Fintech — the team behind HelloBooks. It is priced for Indian teams (₹99/user/month launch offer), wired natively into the HelloBooks accounting ecosystem, and ships across India and 7 other markets (US, UK, AU, CA, AE, SG, NZ).
+HelloTime is an attendance, time-tracking, timesheet and workforce-management product built by Meru Fintech — the team behind HelloBooks. It is priced for Indian teams (permanent Free plan for ≤5 employees; paid plans from ₹49/user/month launch offer), wired natively into the HelloBooks accounting ecosystem, and ships across India and 7 other markets (US, UK, AU, CA, AE, SG, NZ).
 
 ## What it does
 
@@ -22,7 +22,7 @@ HelloTime is a time-tracking, timesheet and workforce-management product built b
 
 ## Plans
 
-Pro, Business, and Enterprise — all start with a 7-day free trial (no credit card). Volume discounts published transparently from 11 seats onward; annual prepay is 20% off on top. See \`list_plans\` tool.
+Five tiers — **Free** (permanent, ≤5 employees), **Attend** (deskless attendance), **Track** (desk productivity), **Pro** (Attend + Track combined), **Business** (Pro + payroll, compliance, AI assist, SSO/SCIM). Every paid tier starts with a 7-day free trial (no credit card). Volume discounts are published transparently from 11 seats onward; annual prepay is 20% off on top. "Enterprise" deals are sold as "Business + add-ons quoted" via /contact. See \`list_plans\` tool.
 
 ## Where this MCP fits
 
@@ -55,8 +55,10 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   { date: '2026-04-20', title: 'HelloBooks ecosystem launch', category: 'feature',
     description: 'Native two-way sync of clients, projects, employees and billable hours between HelloTime and HelloBooks; GST-ready invoices in one click.' },
+  { date: '2026-05-14', title: '5-tier SKU ladder (Free / Attend / Track / Pro / Business)', category: 'feature',
+    description: 'Site-wide migration from 3-tier (Pro / Business / Enterprise) to 5-tier ladder with a permanent Free plan for ≤5 employees, paid plans from ₹49 / $1.99 (launch promo), and Enterprise rolled into Business with SSO/SCIM/SLA included.' },
   { date: '2026-04-15', title: 'India / Global pricing — ₹99 and $4.99', category: 'feature',
-    description: 'Geo-aware pricing: Pro at ₹99/user/month for India, $4.99 globally. Every paid plan starts with a 7-day free trial.' },
+    description: 'Geo-aware pricing launched on the previous 3-tier ladder: old "Pro" at ₹99/user/month for India, $4.99 globally. Now repackaged as the "Track" tier under the 5-tier ladder above.' },
   { date: '2026-04-10', title: '22 competitor comparison pages', category: 'feature',
     description: 'Honest side-by-side pages for Hubstaff, Toggl, Clockify, Teramind, Time Doctor, DeskTime, ActivTrak, Harvest, RescueTime, Monitask and 12 more.' },
   { date: '2026-04-02', title: 'Tablet kiosk mode for factories', category: 'feature',

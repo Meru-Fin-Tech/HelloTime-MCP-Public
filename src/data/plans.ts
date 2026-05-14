@@ -1,9 +1,17 @@
 /**
  * Plan catalog — mirrored from the marketing-site source-of-truth at
- *   Hellotime-website/lib/pricing.ts and components/PricingTable.tsx
+ *   Hellotime-website/lib/pricing.ts,
+ *   Hellotime-website/components/PricingTable.tsx,
+ *   Hellotime-website/components/PricingMatrix.tsx
  *
  * Public-only data: tier names, prices, currencies, feature bullets shown on
  * the public /pricing page. Never includes customer usage, billing, account ID.
+ *
+ * The 5-tier ladder (Free / Attend / Track / Pro / Business) supersedes the
+ * earlier 3-tier (Pro / Business / Enterprise) ladder. The old "Enterprise"
+ * tier was retired and its premium controls (SSO/SCIM, custom data residency,
+ * 99.9% SLA, dedicated success manager) folded into Business. Enterprise-shaped
+ * deals are now sold as "Business + add-ons quoted" via /contact.
  *
  * TODO(federation): once the marketing site exposes /api/public/pricing,
  * switch this module to fetch + cache from that endpoint and drop the static copy.
@@ -11,7 +19,7 @@
 
 export type CountryCode = 'IN' | 'US' | 'CA' | 'GB' | 'AU' | 'AE' | 'SG' | 'NZ';
 export type CurrencyCode = 'INR' | 'USD' | 'CAD' | 'GBP' | 'AUD' | 'AED' | 'SGD' | 'NZD' | 'EUR';
-export type PlanType = 'pro' | 'business' | 'enterprise';
+export type PlanType = 'free' | 'attend' | 'track' | 'pro' | 'business';
 
 export interface PlanPrice {
   country: CountryCode;
@@ -33,82 +41,121 @@ export interface Plan {
   publicSignupUrl: string;
 }
 
-const PRO_FEATURES = [
-  'Unlimited time tracking',
-  'Auto timesheets + manual entries',
-  'Projects, tasks & budgets',
-  'GST invoicing via HelloBooks',
-  'UPI, Razorpay & PayPal payouts',
-  'Desktop, web & mobile apps',
+export const FREE_SEAT_CAP = 5;
+export const FREE_TRIAL_DAYS = 7;
+export const ANNUAL_PREPAY_DISCOUNT_PERCENT = 20;
+
+const FREE_FEATURES = [
+  `Up to ${FREE_SEAT_CAP} employees`,
+  'Leave & shift basics',
+  'Mobile + web apps',
+  'Manual attendance entry',
+  'Community support',
+];
+
+const ATTEND_FEATURES = [
+  'Everything in Free',
+  'Face-recognition clock-in (anti-spoof)',
+  'GPS geofence + multi-site',
+  'Tablet kiosk mode',
+  'Leave & shift management',
+  'WhatsApp / SMS clock-in',
   'Email support',
+];
+
+const TRACK_FEATURES = [
+  'Everything in Free',
+  'Desktop productivity tracker',
+  'Activity, app & URL summaries',
+  'Optional screenshots (privacy-first)',
+  'Projects, tasks & budgets',
+  'Client billing rates',
+  'Email support',
+];
+
+const PRO_FEATURES = [
+  'Everything in Attend',
+  'Everything in Track',
+  'Unified timesheets',
+  'Multi-branch + departments',
+  'Custom reports',
+  'Email + chat support',
 ];
 
 const BUSINESS_FEATURES = [
   'Everything in Pro',
-  'Activity & productivity tracking',
-  'Optional screenshots (privacy-first)',
-  'GPS & geofencing',
-  'Mileage tracking',
-  'Auto-payroll: TDS, PF, ESI, PT (India)',
-  'Form 24Q + FVU export (India)',
-  'Priority chat support',
-];
-
-const ENTERPRISE_FEATURES = [
-  'Everything in Business',
-  'SSO (SAML / OIDC)',
-  'SCIM provisioning',
+  'Auto-payroll (TDS, PF, ESI, PT, LWF)',
+  'Form 24Q + FVU export',
+  'Compliance calendar',
+  'AI manager assist',
+  'SSO (SAML / OIDC) + SCIM',
   'Custom data residency (Azure regions)',
-  'Dedicated success manager',
-  '99.9% uptime SLA',
-  'Custom reports + scheduled email',
-  'Priority phone + email support',
+  '99.9% uptime SLA + dedicated success manager',
+  'Priority support',
 ];
 
 interface RegionConfig {
   country: CountryCode;
   currency: CurrencyCode;
   symbol: string;
-  pro: { promo: number; list: number };
+  free:     { promo: number; list: number };
+  attend:   { promo: number; list: number };
+  track:    { promo: number; list: number };
+  pro:      { promo: number; list: number };
   business: { promo: number; list: number };
-  enterprise: { promo: number; list: number };
 }
 
-const ANNUAL_PREPAY_DISCOUNT = 0.20;
+const ANNUAL_PREPAY_DISCOUNT = ANNUAL_PREPAY_DISCOUNT_PERCENT / 100;
 
 const REGIONS: RegionConfig[] = [
   { country: 'IN', currency: 'INR', symbol: '₹',
-    pro: { promo: 99, list: 199 },
-    business: { promo: 199, list: 399 },
-    enterprise: { promo: 399, list: 799 } },
+    free:     { promo: 0,   list: 0   },
+    attend:   { promo: 49,  list: 99  },
+    track:    { promo: 99,  list: 199 },
+    pro:      { promo: 199, list: 399 },
+    business: { promo: 399, list: 799 } },
   { country: 'US', currency: 'USD', symbol: '$',
-    pro: { promo: 4.99, list: 9.99 },
-    business: { promo: 9.99, list: 19.99 },
-    enterprise: { promo: 19.99, list: 39.99 } },
+    free:     { promo: 0,     list: 0     },
+    attend:   { promo: 1.99,  list: 3.99  },
+    track:    { promo: 4.99,  list: 9.99  },
+    pro:      { promo: 9.99,  list: 19.99 },
+    business: { promo: 19.99, list: 39.99 } },
   { country: 'GB', currency: 'GBP', symbol: '£',
-    pro: { promo: 3.99, list: 7.99 },
-    business: { promo: 7.99, list: 15.99 },
-    enterprise: { promo: 15.99, list: 31.99 } },
+    free:     { promo: 0,     list: 0     },
+    attend:   { promo: 1.99,  list: 2.99  },
+    track:    { promo: 3.99,  list: 7.99  },
+    pro:      { promo: 7.99,  list: 15.99 },
+    business: { promo: 15.99, list: 31.99 } },
   { country: 'AU', currency: 'AUD', symbol: 'A$',
-    pro: { promo: 7.49, list: 14.99 },
-    business: { promo: 14.99, list: 29.99 },
-    enterprise: { promo: 29.99, list: 59.99 } },
+    free:     { promo: 0,     list: 0     },
+    attend:   { promo: 2.99,  list: 5.99  },
+    track:    { promo: 7.49,  list: 14.99 },
+    pro:      { promo: 14.99, list: 29.99 },
+    business: { promo: 29.99, list: 59.99 } },
   { country: 'CA', currency: 'CAD', symbol: 'C$',
-    pro: { promo: 6.99, list: 13.99 },
-    business: { promo: 13.99, list: 27.99 },
-    enterprise: { promo: 27.99, list: 55.99 } },
+    free:     { promo: 0,     list: 0     },
+    attend:   { promo: 2.99,  list: 4.99  },
+    track:    { promo: 6.99,  list: 13.99 },
+    pro:      { promo: 13.99, list: 27.99 },
+    business: { promo: 27.99, list: 55.99 } },
   { country: 'AE', currency: 'AED', symbol: 'AED ',
-    pro: { promo: 18, list: 36 },
-    business: { promo: 36, list: 72 },
-    enterprise: { promo: 72, list: 144 } },
+    free:     { promo: 0,  list: 0   },
+    attend:   { promo: 9,  list: 18  },
+    track:    { promo: 18, list: 36  },
+    pro:      { promo: 36, list: 72  },
+    business: { promo: 72, list: 144 } },
   { country: 'SG', currency: 'SGD', symbol: 'S$',
-    pro: { promo: 6.99, list: 13.99 },
-    business: { promo: 13.99, list: 27.99 },
-    enterprise: { promo: 27.99, list: 55.99 } },
+    free:     { promo: 0,     list: 0     },
+    attend:   { promo: 2.99,  list: 4.99  },
+    track:    { promo: 6.99,  list: 13.99 },
+    pro:      { promo: 13.99, list: 27.99 },
+    business: { promo: 27.99, list: 55.99 } },
   { country: 'NZ', currency: 'NZD', symbol: 'NZ$',
-    pro: { promo: 7.99, list: 15.99 },
-    business: { promo: 15.99, list: 31.99 },
-    enterprise: { promo: 31.99, list: 63.99 } },
+    free:     { promo: 0,     list: 0     },
+    attend:   { promo: 2.99,  list: 5.99  },
+    track:    { promo: 7.99,  list: 15.99 },
+    pro:      { promo: 15.99, list: 31.99 },
+    business: { promo: 31.99, list: 63.99 } },
 ];
 
 function annual(monthly: number, currency: CurrencyCode): number {
@@ -134,10 +181,37 @@ function pricesFor(plan: PlanType): PlanPrice[] {
 
 export const PLANS: Plan[] = [
   {
+    plan: 'free',
+    name: 'Free',
+    tagline: `Permanent free plan for teams up to ${FREE_SEAT_CAP} employees.`,
+    freeTrialDays: 0,
+    features: FREE_FEATURES,
+    prices: pricesFor('free'),
+    publicSignupUrl: 'https://hellotime.ai/signup',
+  },
+  {
+    plan: 'attend',
+    name: 'Attend',
+    tagline: 'Face-rec attendance, GPS, kiosk and leave for deskless teams.',
+    freeTrialDays: FREE_TRIAL_DAYS,
+    features: ATTEND_FEATURES,
+    prices: pricesFor('attend'),
+    publicSignupUrl: 'https://hellotime.ai/signup',
+  },
+  {
+    plan: 'track',
+    name: 'Track',
+    tagline: 'Desktop productivity, projects and reports for desk teams.',
+    freeTrialDays: FREE_TRIAL_DAYS,
+    features: TRACK_FEATURES,
+    prices: pricesFor('track'),
+    publicSignupUrl: 'https://hellotime.ai/signup',
+  },
+  {
     plan: 'pro',
     name: 'Pro',
-    tagline: 'Time tracking, timesheets and GST invoicing for small teams.',
-    freeTrialDays: 7,
+    tagline: 'Attend + Track combined — one timesheet across deskless and desk.',
+    freeTrialDays: FREE_TRIAL_DAYS,
     features: PRO_FEATURES,
     prices: pricesFor('pro'),
     publicSignupUrl: 'https://hellotime.ai/signup',
@@ -145,24 +219,16 @@ export const PLANS: Plan[] = [
   {
     plan: 'business',
     name: 'Business',
-    tagline: 'Productivity monitoring, GPS, payroll automation.',
-    freeTrialDays: 7,
+    tagline: 'Pro + payroll + compliance calendar + AI manager assist + SSO/SCIM.',
+    freeTrialDays: FREE_TRIAL_DAYS,
     features: BUSINESS_FEATURES,
     prices: pricesFor('business'),
     publicSignupUrl: 'https://hellotime.ai/signup',
   },
-  {
-    plan: 'enterprise',
-    name: 'Enterprise',
-    tagline: 'SSO, dedicated support and custom controls for large teams.',
-    freeTrialDays: 7,
-    features: ENTERPRISE_FEATURES,
-    prices: pricesFor('enterprise'),
-    publicSignupUrl: 'https://hellotime.ai/contact',
-  },
 ];
 
 // Volume discount ladder — published transparently on /pricing.
+// Applies to paid tiers only; Free is excluded.
 export interface VolumeTier {
   minSeats: number;
   maxSeats: number | null;
@@ -179,6 +245,3 @@ export const VOLUME_TIERS: VolumeTier[] = [
   { minSeats: 251, maxSeats: 500,  discountPercent: 30, label: '251–500 seats' },
   { minSeats: 501, maxSeats: null, discountPercent: 35, label: '501+ seats' },
 ];
-
-export const ANNUAL_PREPAY_DISCOUNT_PERCENT = 20;
-export const FREE_TRIAL_DAYS = 7;

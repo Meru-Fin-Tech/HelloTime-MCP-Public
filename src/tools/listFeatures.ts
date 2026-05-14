@@ -13,7 +13,7 @@ export const listFeaturesSchema = {
   category: z.enum(CATEGORIES as [FeatureCategory, ...FeatureCategory[]])
     .optional()
     .describe('Filter to one feature category (shifts, rosters, leave, timesheets, gps-geofence, biometric-kiosk, etc.).'),
-  plan: z.enum(['pro', 'business', 'enterprise']).optional()
+  plan: z.enum(['free', 'attend', 'track', 'pro', 'business']).optional()
     .describe('Only return features available in this plan tier.'),
 };
 

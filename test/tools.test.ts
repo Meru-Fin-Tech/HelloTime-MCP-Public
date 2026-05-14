@@ -7,10 +7,10 @@ import { countrySupport } from '../src/tools/countrySupport.js';
 import { payrollCapabilities } from '../src/tools/payrollCapabilities.js';
 import { featureSearch } from '../src/tools/featureSearch.js';
 
-test('list_plans returns all 3 tiers when unfiltered', () => {
+test('list_plans returns all 5 tiers when unfiltered', () => {
   const r = listPlans({});
   const names = r.plans.map((p) => p.plan).sort();
-  assert.deepEqual(names, ['business', 'enterprise', 'pro']);
+  assert.deepEqual(names, ['attend', 'business', 'free', 'pro', 'track']);
   // Each plan has prices for 8 countries
   for (const p of r.plans) {
     assert.equal(p.prices.length, 8);
@@ -18,6 +18,36 @@ test('list_plans returns all 3 tiers when unfiltered', () => {
   assert.equal(r.freeTrialDays, 7);
   assert.equal(r.annualPrepayDiscountPercent, 20);
   assert.ok(r.volumeDiscounts.length >= 6);
+});
+
+test('list_plans Free plan is zero across every currency', () => {
+  const r = listPlans({ plan: 'free' });
+  assert.equal(r.plans.length, 1);
+  const free = r.plans[0]!;
+  assert.equal(free.plan, 'free');
+  for (const p of free.prices) {
+    assert.equal(p.monthlyPromo, 0);
+    assert.equal(p.monthlyList, 0);
+    assert.equal(p.annualPromo, 0);
+    assert.equal(p.annualList, 0);
+  }
+});
+
+test('list_plans IN promo prices match canonical 5-tier ladder', () => {
+  // Mirror lib/pricing.ts on Hellotime-website main.
+  const expected: Record<string, { promo: number; list: number }> = {
+    free:     { promo: 0,   list: 0   },
+    attend:   { promo: 49,  list: 99  },
+    track:    { promo: 99,  list: 199 },
+    pro:      { promo: 199, list: 399 },
+    business: { promo: 399, list: 799 },
+  };
+  const r = listPlans({ country: 'IN' });
+  for (const p of r.plans) {
+    const want = expected[p.plan]!;
+    assert.equal(p.prices[0]!.monthlyPromo, want.promo, `${p.plan} promo`);
+    assert.equal(p.prices[0]!.monthlyList, want.list, `${p.plan} list`);
+  }
 });
 
 test('list_plans country filter narrows to that country only', () => {
