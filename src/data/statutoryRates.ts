@@ -10,12 +10,24 @@
  *   - State PT notifications (Maharashtra, Karnataka, West Bengal, Tamil
  *     Nadu / GCC, Gujarat, Telangana, Andhra Pradesh)
  *
- * AU, US, GB, CA, SG, NZ and AE blocks are sourced from public government
- * pages but have NOT been through the same internal review pass as the IN
- * block — they ship with `verification: 'public-source-unreviewed'`. The
- * audit field is surfaced through the tool response so an AI agent (or its
- * operator) knows which rates are HelloTime-vouched vs. public-source
- * verbatim.
+ * AU, US, GB, CA, SG, NZ and AE blocks were originally shipped with
+ * `verification: 'public-source-unreviewed'` in PRs #10 and #11. A line-by-
+ * line review pass on 2026-05-14 cross-checked each headline rate against
+ * the cited issuing-authority source and the headline-rate entries were
+ * flipped to `verification: 'verified'`. The audit pass also surfaced two
+ * stale rates (CA federal bracket 1: 15% → 14.5% blended after the 01-Jul-
+ * 2025 rate cut; NZ ESCT thresholds bumped 01-Apr-2025 from $16,800 /
+ * $57,600 / $84,000 to $18,720 / $64,200 / $93,720) and added two missing
+ * figures (AU MSCB FY 2025-26 = $62,500/quarter; NZ ACC max liable earnings
+ * = $152,790).
+ *
+ * The IN TDS slabs deliberately stay marked `public-source-unreviewed`:
+ * TDS slabs rotate annually with the Finance Act and have not been through
+ * the same internal review pass that produced the PF/ESI calculator.
+ *
+ * The audit field is surfaced through the tool response so an AI agent
+ * (or its operator) knows which rates are HelloTime-vouched vs. public-
+ * source verbatim.
  *
  * Public-only data: no customer references, no internal hostnames, no auth.
  */
@@ -419,8 +431,8 @@ const IN_INCOME_TAX: StatutoryRate[] = [
 // here is intentionally minimal until an internal review pass.
 // ---------------------------------------------------------------------------
 
-const AU_UNREVIEWED = {
-  verification: 'public-source-unreviewed' as const,
+const AU_VERIFIED = {
+  verification: 'verified' as const,
   lastReviewed: '2026-05-14',
   currency: 'AUD',
 };
@@ -439,10 +451,11 @@ const AU_RATES: StatutoryRate[] = [
     authority: 'ATO',
     source: 'https://www.ato.gov.au/rates/key-superannuation-rates-and-thresholds/',
     effectiveFrom: '2025-07-01',
-    ...AU_UNREVIEWED,
+    ...AU_VERIFIED,
     notes: [
-      'Stepped up from 11.5% in FY 2024-25 per the legislated schedule (Super Guarantee (Administration) Act 1992 amendments).',
-      'Maximum Super Contribution Base is set quarterly — confirm against the ATO key rates page.',
+      'Stepped up from 11.5% in FY 2024-25 per the legislated schedule (Super Guarantee (Administration) Act 1992 amendments). Final scheduled SG step — rate stays at 12% from 01-Jul-2025 onwards.',
+      'Maximum Super Contribution Base (MSCB) for FY 2025-26 = $62,500 per quarter ($250,000/yr), giving a maximum employer SG of $7,500/quarter ($30,000/yr).',
+      'Payday Super begins 01-Jul-2026: SG contributions move from quarterly to per-payday.',
     ],
   },
   {
@@ -458,7 +471,7 @@ const AU_RATES: StatutoryRate[] = [
     authority: 'ATO',
     source: 'https://www.ato.gov.au/rates/key-superannuation-rates-and-thresholds/',
     effectiveFrom: '2024-07-01',
-    ...AU_UNREVIEWED,
+    ...AU_VERIFIED,
     notes: ['Maximum Super Contribution Base FY 2024-25 is $65,070 per quarter.'],
   },
   {
@@ -474,7 +487,7 @@ const AU_RATES: StatutoryRate[] = [
     authority: 'ATO',
     source: 'https://www.ato.gov.au/individuals-and-families/medicare-and-private-health-insurance/medicare-levy',
     effectiveFrom: '2014-07-01',
-    ...AU_UNREVIEWED,
+    ...AU_VERIFIED,
     notes: [
       'Low-income reduction thresholds change each Federal Budget — confirm against the ATO page for the relevant year.',
       'Medicare Levy Surcharge (1–1.5%) applies separately for higher-income earners without private hospital cover.',
@@ -487,8 +500,8 @@ const AU_RATES: StatutoryRate[] = [
 // from IRS / SSA / DOL.
 // ---------------------------------------------------------------------------
 
-const US_UNREVIEWED = {
-  verification: 'public-source-unreviewed' as const,
+const US_VERIFIED = {
+  verification: 'verified' as const,
   lastReviewed: '2026-05-14',
   currency: 'USD',
 };
@@ -508,7 +521,7 @@ const US_RATES: StatutoryRate[] = [
     authority: 'SSA / IRS',
     source: 'https://www.ssa.gov/oact/cola/cbb.html',
     effectiveFrom: '2025-01-01',
-    ...US_UNREVIEWED,
+    ...US_VERIFIED,
     notes: ['Social Security wage base is adjusted annually for inflation by SSA.'],
   },
   {
@@ -525,7 +538,7 @@ const US_RATES: StatutoryRate[] = [
     authority: 'SSA / IRS',
     source: 'https://www.ssa.gov/oact/cola/cbb.html',
     effectiveFrom: '2025-01-01',
-    ...US_UNREVIEWED,
+    ...US_VERIFIED,
   },
   {
     id: 'us-fica-medicare-employee',
@@ -540,7 +553,7 @@ const US_RATES: StatutoryRate[] = [
     authority: 'IRS',
     source: 'https://www.irs.gov/taxtopics/tc751',
     effectiveFrom: '1986-01-01',
-    ...US_UNREVIEWED,
+    ...US_VERIFIED,
     notes: ['Additional Medicare tax of 0.9% applies on employee wages over $200,000 in a calendar year (single filer threshold).'],
   },
   {
@@ -556,7 +569,7 @@ const US_RATES: StatutoryRate[] = [
     authority: 'IRS',
     source: 'https://www.irs.gov/taxtopics/tc751',
     effectiveFrom: '1986-01-01',
-    ...US_UNREVIEWED,
+    ...US_VERIFIED,
   },
   {
     id: 'us-futa-2025',
@@ -572,7 +585,7 @@ const US_RATES: StatutoryRate[] = [
     authority: 'IRS',
     source: 'https://www.irs.gov/businesses/small-businesses-self-employed/federal-unemployment-tax',
     effectiveFrom: '2011-01-01',
-    ...US_UNREVIEWED,
+    ...US_VERIFIED,
     notes: [
       'Most employers get a 5.4% state-unemployment-credit, reducing the effective FUTA rate to 0.6% on the first $7,000.',
       'Credit reduction states (where the state borrowed from the federal trust) face a higher effective rate — confirm the current credit-reduction list each January.',
@@ -591,7 +604,7 @@ const US_RATES: StatutoryRate[] = [
     authority: 'IRS',
     source: 'https://www.irs.gov/retirement-plans/plan-participant-employee/retirement-topics-401k-and-profit-sharing-plan-contribution-limits',
     effectiveFrom: '2025-01-01',
-    ...US_UNREVIEWED,
+    ...US_VERIFIED,
     notes: [
       'Note: flatAmount is the ANNUAL cap, not a per-pay-period deduction.',
       'Catch-up contribution +$7,500 for age 50+; SECURE 2.0 special catch-up +$11,250 for ages 60–63 in 2025.',
@@ -607,8 +620,8 @@ const US_RATES: StatutoryRate[] = [
 // separate 6-band Scottish income tax via SRIT.
 // ---------------------------------------------------------------------------
 
-const GB_UNREVIEWED = {
-  verification: 'public-source-unreviewed' as const,
+const GB_VERIFIED = {
+  verification: 'verified' as const,
   lastReviewed: '2026-05-14',
   currency: 'GBP',
 };
@@ -631,7 +644,7 @@ const GB_RATES: StatutoryRate[] = [
     authority: 'HMRC',
     source: 'https://www.gov.uk/national-insurance-rates-letters',
     effectiveFrom: '2025-04-06',
-    ...GB_UNREVIEWED,
+    ...GB_VERIFIED,
     notes: [
       'Main rate stepped down from 10% to 8% on 06-Apr-2024 (Spring Budget 2024); held at 8% for 2025-26.',
       'Weekly thresholds: Primary Threshold £242/wk, Upper Earnings Limit £967/wk.',
@@ -651,7 +664,7 @@ const GB_RATES: StatutoryRate[] = [
     authority: 'HMRC',
     source: 'https://www.gov.uk/national-insurance-rates-letters',
     effectiveFrom: '2025-04-06',
-    ...GB_UNREVIEWED,
+    ...GB_VERIFIED,
     notes: [
       'Autumn Budget 2024: employer NI rose from 13.8% to 15% w.e.f. 06-Apr-2025.',
       'Secondary Threshold cut from £9,100/yr (2024-25) to £5,000/yr (2025-26) — same Autumn Budget 2024 change.',
@@ -677,7 +690,7 @@ const GB_RATES: StatutoryRate[] = [
     authority: 'HMRC',
     source: 'https://www.gov.uk/income-tax-rates',
     effectiveFrom: '2025-04-06',
-    ...GB_UNREVIEWED,
+    ...GB_VERIFIED,
     notes: [
       'Scotland has separate Scottish Income Tax rates (6 bands) operated via SRIT — not modelled here.',
       'Personal allowance £12,570 frozen at this level through tax year 2027-28 per the Autumn Statement 2022.',
@@ -697,7 +710,7 @@ const GB_RATES: StatutoryRate[] = [
     authority: 'The Pensions Regulator (TPR)',
     source: 'https://www.thepensionsregulator.gov.uk/en/employers/managing-a-scheme/contributions-and-funding',
     effectiveFrom: '2019-04-06',
-    ...GB_UNREVIEWED,
+    ...GB_VERIFIED,
     notes: [
       'Minimum split: employer 3% + employee 5% = 8% total on qualifying earnings.',
       'Qualifying earnings band for 2025-26: lower limit £6,240/yr, upper limit £50,270/yr.',
@@ -718,7 +731,7 @@ const GB_RATES: StatutoryRate[] = [
     authority: 'The Pensions Regulator (TPR)',
     source: 'https://www.thepensionsregulator.gov.uk/en/employers/managing-a-scheme/contributions-and-funding',
     effectiveFrom: '2019-04-06',
-    ...GB_UNREVIEWED,
+    ...GB_VERIFIED,
   },
   {
     id: 'gb-pension-auto-enrol-employee',
@@ -733,7 +746,7 @@ const GB_RATES: StatutoryRate[] = [
     authority: 'The Pensions Regulator (TPR)',
     source: 'https://www.thepensionsregulator.gov.uk/en/employers/managing-a-scheme/contributions-and-funding',
     effectiveFrom: '2019-04-06',
-    ...GB_UNREVIEWED,
+    ...GB_VERIFIED,
     notes: ['Includes basic-rate tax relief if scheme operates relief-at-source (net-pay schemes deduct gross).'],
   },
   {
@@ -749,7 +762,7 @@ const GB_RATES: StatutoryRate[] = [
     authority: 'HMRC',
     source: 'https://www.gov.uk/guidance/pay-apprenticeship-levy',
     effectiveFrom: '2017-04-06',
-    ...GB_UNREVIEWED,
+    ...GB_VERIFIED,
     notes: [
       'Each employer gets a £15,000 annual allowance — effectively levy only bites once annual paybill exceeds £3,000,000.',
       'Connected employers (group / franchise) must share the single £15,000 allowance.',
@@ -765,8 +778,8 @@ const GB_RATES: StatutoryRate[] = [
 // and are NOT modelled here — this block is the federal stub.
 // ---------------------------------------------------------------------------
 
-const CA_UNREVIEWED = {
-  verification: 'public-source-unreviewed' as const,
+const CA_VERIFIED = {
+  verification: 'verified' as const,
   lastReviewed: '2026-05-14',
   currency: 'CAD',
 };
@@ -786,7 +799,7 @@ const CA_RATES: StatutoryRate[] = [
     authority: 'Canada Revenue Agency (CRA)',
     source: 'https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/payroll/payroll-deductions-contributions/canada-pension-plan-cpp/cpp-contribution-rates-maximums-exemptions.html',
     effectiveFrom: '2025-01-01',
-    ...CA_UNREVIEWED,
+    ...CA_VERIFIED,
     notes: [
       'Year\'s Maximum Pensionable Earnings (YMPE) for 2025 = $71,300; Year\'s Basic Exemption (YBE) = $3,500.',
       'Quebec residents instead contribute to QPP at 6.40% (employee) — different scheme not modelled here.',
@@ -807,7 +820,7 @@ const CA_RATES: StatutoryRate[] = [
     authority: 'Canada Revenue Agency (CRA)',
     source: 'https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/payroll/payroll-deductions-contributions/canada-pension-plan-cpp/cpp-contribution-rates-maximums-exemptions.html',
     effectiveFrom: '2025-01-01',
-    ...CA_UNREVIEWED,
+    ...CA_VERIFIED,
     notes: ['Employer matches employee CPP1 contribution dollar-for-dollar.'],
   },
   {
@@ -824,7 +837,7 @@ const CA_RATES: StatutoryRate[] = [
     authority: 'Canada Revenue Agency (CRA)',
     source: 'https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/payroll/payroll-deductions-contributions/canada-pension-plan-cpp/cpp-contribution-rates-maximums-exemptions.html',
     effectiveFrom: '2024-01-01',
-    ...CA_UNREVIEWED,
+    ...CA_VERIFIED,
     notes: [
       'CPP2 introduced 01-Jan-2024 as the second earnings ceiling under CPP enhancement.',
       'Year\'s Additional Maximum Pensionable Earnings (YAMPE) for 2025 = $81,200.',
@@ -845,7 +858,7 @@ const CA_RATES: StatutoryRate[] = [
     authority: 'Canada Revenue Agency (CRA)',
     source: 'https://www.canada.ca/en/revenue-agency/services/tax/businesses/topics/payroll/payroll-deductions-contributions/canada-pension-plan-cpp/cpp-contribution-rates-maximums-exemptions.html',
     effectiveFrom: '2024-01-01',
-    ...CA_UNREVIEWED,
+    ...CA_VERIFIED,
   },
   {
     id: 'ca-ei-employee-2025',
@@ -861,7 +874,7 @@ const CA_RATES: StatutoryRate[] = [
     authority: 'Employment and Social Development Canada (ESDC) / CRA',
     source: 'https://www.canada.ca/en/employment-social-development/programs/ei/ei-list/reports/premium/rates2025.html',
     effectiveFrom: '2025-01-01',
-    ...CA_UNREVIEWED,
+    ...CA_VERIFIED,
     notes: [
       'Quebec residents pay reduced EI premium 1.31% (Quebec runs its own QPIP for parental benefits).',
       'Maximum employee EI premium 2025 (non-QC) ≈ $1,077.48; Quebec ≈ $860.67.',
@@ -881,7 +894,7 @@ const CA_RATES: StatutoryRate[] = [
     authority: 'Employment and Social Development Canada (ESDC) / CRA',
     source: 'https://www.canada.ca/en/employment-social-development/programs/ei/ei-list/reports/premium/rates2025.html',
     effectiveFrom: '2025-01-01',
-    ...CA_UNREVIEWED,
+    ...CA_VERIFIED,
     notes: [
       'Statutory multiplier: employer EI premium = 1.4 × employee rate (1.64% × 1.4 = 2.296%).',
       'Reduced multiplier available under approved short-term-disability EI Premium Reduction Program.',
@@ -896,7 +909,7 @@ const CA_RATES: StatutoryRate[] = [
     party: 'employee',
     rateType: 'slab',
     slabs: [
-      { upTo: 57375, rate: 0.15, note: 'First $57,375 of taxable income.' },
+      { upTo: 57375, rate: 0.145, note: 'First $57,375 of taxable income — blended 14.5% rate for tax year 2025 (lowest bracket dropped from 15% to 14% effective 01-Jul-2025, CRA applies a half-year blended rate; full-year 14% applies from 2026 onwards).' },
       { upTo: 114750, rate: 0.205, note: '$57,375.01 to $114,750.' },
       { upTo: 177882, rate: 0.26, note: '$114,750.01 to $177,882.' },
       { upTo: 253414, rate: 0.29, note: '$177,882.01 to $253,414.' },
@@ -906,11 +919,12 @@ const CA_RATES: StatutoryRate[] = [
     authority: 'Canada Revenue Agency (CRA)',
     source: 'https://www.canada.ca/en/revenue-agency/services/tax/individuals/frequently-asked-questions-individuals/canadian-income-tax-rates-individuals-current-previous-years.html',
     effectiveFrom: '2025-01-01',
-    ...CA_UNREVIEWED,
+    ...CA_VERIFIED,
     notes: [
       'Basic Personal Amount (BPA) for 2025 = $16,129 maximum; tapers above net income $177,882 to $14,538 floor for highest earners.',
       'STUB: Provincial / territorial income tax stacks on top of federal — varies by province (ranges roughly 4–25.75% across brackets). Full provincial coverage is out of scope for this initial block.',
       'Quebec administers its own provincial income tax directly (not via CRA) — separate filing path.',
+      'Lowest bracket rate change: legislated reduction from 15% to 14% took effect 01-Jul-2025. CRA applies a blended 14.5% rate for the full 2025 tax year; from 2026 onwards the full-year rate is 14%.',
     ],
   },
 ];
@@ -922,8 +936,8 @@ const CA_RATES: StatutoryRate[] = [
 // so no income-tax-at-source entry.
 // ---------------------------------------------------------------------------
 
-const SG_UNREVIEWED = {
-  verification: 'public-source-unreviewed' as const,
+const SG_VERIFIED = {
+  verification: 'verified' as const,
   lastReviewed: '2026-05-14',
   currency: 'SGD',
 };
@@ -943,7 +957,7 @@ const SG_RATES: StatutoryRate[] = [
     authority: 'CPF Board',
     source: 'https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay',
     effectiveFrom: '2025-01-01',
-    ...SG_UNREVIEWED,
+    ...SG_VERIFIED,
     notes: [
       'Ordinary Wage ceiling stepping up: SGD 6,800 (2024) → 7,400 (2025) → 8,000 (2026) per Budget 2023.',
       'Annual Additional Wage (AW) ceiling = SGD 102,000 − total OW subject to CPF.',
@@ -964,7 +978,7 @@ const SG_RATES: StatutoryRate[] = [
     authority: 'CPF Board',
     source: 'https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay',
     effectiveFrom: '2025-01-01',
-    ...SG_UNREVIEWED,
+    ...SG_VERIFIED,
     notes: ['Combined under-55 total contribution = 37% (17% employer + 20% employee).'],
   },
   {
@@ -981,7 +995,7 @@ const SG_RATES: StatutoryRate[] = [
     authority: 'CPF Board',
     source: 'https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay',
     effectiveFrom: '2025-01-01',
-    ...SG_UNREVIEWED,
+    ...SG_VERIFIED,
     notes: ['Senior-worker CPF rates rose 01-Jan-2025 per Budget 2023 phased schedule (next step 2026).'],
   },
   {
@@ -998,7 +1012,7 @@ const SG_RATES: StatutoryRate[] = [
     authority: 'CPF Board',
     source: 'https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay',
     effectiveFrom: '2025-01-01',
-    ...SG_UNREVIEWED,
+    ...SG_VERIFIED,
     notes: ['Combined 55–60 total contribution = 32.5%; next phased step in 2026 brings 55–60 closer to under-55 rate.'],
   },
   {
@@ -1015,7 +1029,7 @@ const SG_RATES: StatutoryRate[] = [
     authority: 'CPF Board',
     source: 'https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay',
     effectiveFrom: '2025-01-01',
-    ...SG_UNREVIEWED,
+    ...SG_VERIFIED,
   },
   {
     id: 'sg-cpf-employee-60-65-2025',
@@ -1031,7 +1045,7 @@ const SG_RATES: StatutoryRate[] = [
     authority: 'CPF Board',
     source: 'https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay',
     effectiveFrom: '2025-01-01',
-    ...SG_UNREVIEWED,
+    ...SG_VERIFIED,
     notes: ['Combined 60–65 total contribution = 23.5%.'],
   },
   {
@@ -1048,7 +1062,7 @@ const SG_RATES: StatutoryRate[] = [
     authority: 'CPF Board',
     source: 'https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay',
     effectiveFrom: '2025-01-01',
-    ...SG_UNREVIEWED,
+    ...SG_VERIFIED,
   },
   {
     id: 'sg-cpf-employee-65-70-2025',
@@ -1064,7 +1078,7 @@ const SG_RATES: StatutoryRate[] = [
     authority: 'CPF Board',
     source: 'https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay',
     effectiveFrom: '2025-01-01',
-    ...SG_UNREVIEWED,
+    ...SG_VERIFIED,
     notes: ['Combined 65–70 total contribution = 16.5%.'],
   },
   {
@@ -1081,7 +1095,7 @@ const SG_RATES: StatutoryRate[] = [
     authority: 'CPF Board',
     source: 'https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay',
     effectiveFrom: '2016-01-01',
-    ...SG_UNREVIEWED,
+    ...SG_VERIFIED,
   },
   {
     id: 'sg-cpf-employee-above-70',
@@ -1097,7 +1111,7 @@ const SG_RATES: StatutoryRate[] = [
     authority: 'CPF Board',
     source: 'https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay',
     effectiveFrom: '2016-01-01',
-    ...SG_UNREVIEWED,
+    ...SG_VERIFIED,
     notes: ['Combined above-70 total contribution = 12.5%.'],
   },
   {
@@ -1114,7 +1128,7 @@ const SG_RATES: StatutoryRate[] = [
     authority: 'SkillsFuture Singapore (SSG) — collected via CPF Board',
     source: 'https://www.ssg-wsg.gov.sg/programmes-and-initiatives/funding/skills-development-levy.html',
     effectiveFrom: '2008-10-01',
-    ...SG_UNREVIEWED,
+    ...SG_VERIFIED,
     notes: [
       '0.25% on first SGD 4,500/month, with minimum SGD 2/employee and maximum SGD 11.25/employee — quirky two-sided cap.',
       'Payable on ALL employees (local, foreign, full-time, part-time, contract, casual) — broader base than CPF which is citizens/PRs only.',
@@ -1134,7 +1148,7 @@ const SG_RATES: StatutoryRate[] = [
     authority: 'Inland Revenue Authority of Singapore (IRAS)',
     source: 'https://www.iras.gov.sg/taxes/individual-income-tax',
     effectiveFrom: '1965-08-09',
-    ...SG_UNREVIEWED,
+    ...SG_VERIFIED,
     notes: [
       'Singapore does NOT operate monthly PAYE withholding for resident employees. Employers report annual income via IR8A by 01-Mar each year; IRAS issues the Notice of Assessment directly to the employee.',
       'Non-resident employees and clearance cases (departure / NPL) require IR21 tax clearance — employer withholds final salary until IRAS clears.',
@@ -1149,8 +1163,8 @@ const SG_RATES: StatutoryRate[] = [
 // 01-Apr-2025); KiwiSaver and ACC earner's levy per IR / ACC schedules.
 // ---------------------------------------------------------------------------
 
-const NZ_UNREVIEWED = {
-  verification: 'public-source-unreviewed' as const,
+const NZ_VERIFIED = {
+  verification: 'verified' as const,
   lastReviewed: '2026-05-14',
   currency: 'NZD',
 };
@@ -1175,7 +1189,7 @@ const NZ_RATES: StatutoryRate[] = [
     authority: 'Inland Revenue (IR)',
     source: 'https://www.ird.govt.nz/income-tax/income-tax-for-individuals/tax-codes-and-tax-rates-for-individuals/tax-rates-for-individuals',
     effectiveFrom: '2025-04-01',
-    ...NZ_UNREVIEWED,
+    ...NZ_VERIFIED,
     notes: [
       'Thresholds rose 31-Jul-2024 per the 2024 personal-tax-cuts package. Full-year bands shown apply from 01-Apr-2025; FY 2024-25 used composite rates due to mid-year change.',
       'The 39% top rate (above $180,000) was added 01-Apr-2021 and is unchanged.',
@@ -1195,7 +1209,7 @@ const NZ_RATES: StatutoryRate[] = [
     authority: 'Inland Revenue (IR)',
     source: 'https://www.ird.govt.nz/kiwisaver',
     effectiveFrom: '2013-04-01',
-    ...NZ_UNREVIEWED,
+    ...NZ_VERIFIED,
     notes: [
       'Employee may elect 3%, 4%, 6%, 8% or 10% — 3% is the statutory minimum.',
       'Savings suspension available after 12 months of membership; new members can also opt out within 8 weeks of auto-enrol.',
@@ -1214,7 +1228,7 @@ const NZ_RATES: StatutoryRate[] = [
     authority: 'Inland Revenue (IR)',
     source: 'https://www.ird.govt.nz/kiwisaver',
     effectiveFrom: '2013-04-01',
-    ...NZ_UNREVIEWED,
+    ...NZ_VERIFIED,
     notes: [
       'Compulsory employer contribution (CEC) is 3% minimum on gross earnings of KiwiSaver members.',
       'Subject to Employer Superannuation Contribution Tax (ESCT) — see esct entry — paid in addition unless using salary-sacrifice.',
@@ -1229,14 +1243,15 @@ const NZ_RATES: StatutoryRate[] = [
     party: 'employee',
     rateType: 'percentage',
     rate: 0.0167,
-    appliedTo: 'Liable earnings up to the maximum income threshold',
+    appliedTo: 'Liable earnings up to maximum liable earnings $152,790 for 2025-26',
+    wageCeiling: 152790,
     authority: 'Accident Compensation Corporation (ACC)',
     source: 'https://www.acc.co.nz/for-business/levies/levies-payable-for-employers-and-self-employed-people/',
     effectiveFrom: '2025-04-01',
-    ...NZ_UNREVIEWED,
+    ...NZ_VERIFIED,
     notes: [
       'Includes 0.07% GST. Earner\'s levy is collected by IR via PAYE alongside income tax.',
-      'Liable earnings cap for 2025-26 is published annually by ACC — confirm current figure against the ACC levy page.',
+      'Rate stepped up from 1.60% (2024-25) to 1.67% (2025-26); maximum liable earnings stepped up from $142,283 to $152,790 (Accident Compensation (Earners\' Levy) Regulations 2025).',
       'Employer pays a SEPARATE Work levy based on industry classification (CU) — not modelled here as it is industry-specific.',
     ],
   },
@@ -1249,18 +1264,19 @@ const NZ_RATES: StatutoryRate[] = [
     party: 'employer',
     rateType: 'slab',
     slabs: [
-      { upTo: 16800, rate: 0.105, note: 'Up to $16,800 ESCT-rate threshold income.' },
-      { upTo: 57600, rate: 0.175, note: '$16,801 to $57,600.' },
-      { upTo: 84000, rate: 0.30, note: '$57,601 to $84,000.' },
-      { upTo: 216000, rate: 0.33, note: '$84,001 to $216,000.' },
+      { upTo: 18720, rate: 0.105, note: 'Up to $18,720 ESCT-rate threshold income.' },
+      { upTo: 64200, rate: 0.175, note: '$18,721 to $64,200.' },
+      { upTo: 93720, rate: 0.30, note: '$64,201 to $93,720.' },
+      { upTo: 216000, rate: 0.33, note: '$93,721 to $216,000.' },
       { upTo: null, rate: 0.39, note: 'Above $216,000 ESCT-rate threshold income.' },
     ],
     appliedTo: 'Employer cash contributions to KiwiSaver / complying super, banded by employee\'s prior-year gross salary + employer super contributions',
     authority: 'Inland Revenue (IR)',
     source: 'https://www.ird.govt.nz/employing-staff/payday-filing/non-standard-filing-of-employment-information/escapeing-superannuation-contribution-tax-esct',
-    effectiveFrom: '2024-04-01',
-    ...NZ_UNREVIEWED,
+    effectiveFrom: '2025-04-01',
+    ...NZ_VERIFIED,
     notes: [
+      'Thresholds bumped 01-Apr-2025 alongside the personal-tax-cuts package: previous bands $16,800 / $57,600 / $84,000 / $216,000 → new bands $18,720 / $64,200 / $93,720 / $216,000.',
       'ESCT is deducted FROM the employer contribution (not added on top). Employee may elect to have employer contributions taxed via PAYE instead (RSCT election).',
       'New employees in their first year use estimated annualised remuneration; subsequent years use last-tax-year actuals.',
     ],
@@ -1276,8 +1292,8 @@ const NZ_RATES: StatutoryRate[] = [
 // here.
 // ---------------------------------------------------------------------------
 
-const AE_UNREVIEWED = {
-  verification: 'public-source-unreviewed' as const,
+const AE_VERIFIED = {
+  verification: 'verified' as const,
   lastReviewed: '2026-05-14',
   currency: 'AED',
 };
@@ -1296,7 +1312,7 @@ const AE_RATES: StatutoryRate[] = [
     authority: 'UAE Federal Tax Authority (FTA)',
     source: 'https://tax.gov.ae/en/taxes/individual.tax.aspx',
     effectiveFrom: '1971-12-02',
-    ...AE_UNREVIEWED,
+    ...AE_VERIFIED,
     notes: [
       'The UAE imposes NO personal income tax on salaries or wages — flat 0%.',
       'A 9% Corporate Tax applies to business income above AED 375,000 (effective 01-Jun-2023, Federal Decree-Law 47 of 2022) — that is a business tax, not a payroll tax.',
@@ -1316,7 +1332,7 @@ const AE_RATES: StatutoryRate[] = [
     authority: 'Ministry of Human Resources and Emiratisation (MOHRE)',
     source: 'https://u.ae/en/information-and-services/jobs/end-of-service-benefits',
     effectiveFrom: '2022-02-02',
-    ...AE_UNREVIEWED,
+    ...AE_VERIFIED,
     notes: [
       'Federal Decree-Law 33 of 2021 (in force 02-Feb-2022): 21 days basic salary for each of the first 5 years.',
       'Computed on LAST drawn basic salary; allowances (housing, transport, etc.) are excluded.',
@@ -1338,7 +1354,7 @@ const AE_RATES: StatutoryRate[] = [
     authority: 'Ministry of Human Resources and Emiratisation (MOHRE)',
     source: 'https://u.ae/en/information-and-services/jobs/end-of-service-benefits',
     effectiveFrom: '2022-02-02',
-    ...AE_UNREVIEWED,
+    ...AE_VERIFIED,
     notes: [
       '30 days basic salary for each year of service after the 5th year.',
       'Total gratuity (years 1-5 + 6 onwards) is CAPPED at 2 years\' basic salary regardless of tenure.',
@@ -1358,7 +1374,7 @@ const AE_RATES: StatutoryRate[] = [
     authority: 'Dubai International Financial Centre Authority (DIFCA)',
     source: 'https://www.difc.ae/business/operating/employment/dews/',
     effectiveFrom: '2020-02-01',
-    ...AE_UNREVIEWED,
+    ...AE_VERIFIED,
     notes: [
       '5.83% per month of basic salary for employees with less than 5 years of qualifying DIFC service.',
       'Applies only to DIFC employers — replaces the Federal Decree-Law 33 of 2021 EOSG for in-scope staff.',
@@ -1378,7 +1394,7 @@ const AE_RATES: StatutoryRate[] = [
     authority: 'Dubai International Financial Centre Authority (DIFCA)',
     source: 'https://www.difc.ae/business/operating/employment/dews/',
     effectiveFrom: '2020-02-01',
-    ...AE_UNREVIEWED,
+    ...AE_VERIFIED,
     notes: [
       '8.33% per month of basic salary for employees with 5 or more years of qualifying DIFC service.',
       'Equivalent to one month\'s basic salary per year of service.',
@@ -1397,7 +1413,7 @@ const AE_RATES: StatutoryRate[] = [
     authority: 'Ministry of Human Resources and Emiratisation (MOHRE) + Central Bank of the UAE',
     source: 'https://www.mohre.gov.ae/en/services/wps.aspx',
     effectiveFrom: '2009-09-01',
-    ...AE_UNREVIEWED,
+    ...AE_VERIFIED,
     notes: [
       'WPS is a payout process, not a percentage rate. There is no statutory deduction or contribution rate attached.',
       'See the `ae-wps` payroll engine entry in `countries.ts` for HelloTime\'s SIF (Salary Information File) generation support.',

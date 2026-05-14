@@ -19,7 +19,7 @@ const CATEGORIES: StatutoryCategory[] = [
 
 export const statutoryRatesSchema = {
   country: z.enum(['IN', 'AU', 'US', 'GB', 'CA', 'SG', 'NZ', 'AE']).optional()
-    .describe('Filter to one country. IN is the comprehensively-verified block; AU, US, GB, CA, SG, NZ and AE are public-source-unreviewed.'),
+    .describe('Filter to one country. All 8 countries\' headline rates have been reviewed against issuing-authority sources; the only entries still marked public-source-unreviewed are the IN TDS (Section 192) slabs, which rotate annually with the Finance Act.'),
   scheme: z.string().optional()
     .describe('Match a scheme key like "PF", "ESI", "PT", "TDS", "SuperGuarantee", "FICA-SS", "FICA-Medicare", "FUTA", "401k", "MedicareLevy", "NI-Class1", "PAYE", "AutoEnrol", "ApprenticeshipLevy", "CPP", "CPP2", "EI", "FederalIncomeTax", "CPF", "SDL", "IR8A", "KiwiSaver", "ACC", "ESCT", "EOSG", "DEWS", "WPS". Case-insensitive substring match.'),
   category: z.enum(CATEGORIES as [StatutoryCategory, ...StatutoryCategory[]])
@@ -30,7 +30,7 @@ export const statutoryRatesSchema = {
   party: z.enum(['employee', 'employer', 'both']).optional()
     .describe('Filter by who pays the contribution.'),
   verification: z.enum(['verified', 'public-source-unreviewed']).optional()
-    .describe('Filter by verification status. Use "verified" to restrict to internally-reviewed rates (IN PF/ESI/PT).'),
+    .describe('Filter by verification status. After the 2026-05-14 review pass, "verified" covers headline rates for IN PF/ESI/PT plus AU/US/GB/CA/SG/NZ/AE. "public-source-unreviewed" now flags only the IN TDS slabs (which rotate annually with the Finance Act).'),
   id: z.string().optional()
     .describe('Return a single rate by id (e.g. "in-pf-employee", "au-super-guarantee-fy2526").'),
 };
