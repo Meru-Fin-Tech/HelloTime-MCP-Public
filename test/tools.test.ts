@@ -6,6 +6,8 @@ import { listFeatures } from '../src/tools/listFeatures.js';
 import { countrySupport } from '../src/tools/countrySupport.js';
 import { payrollCapabilities } from '../src/tools/payrollCapabilities.js';
 import { featureSearch } from '../src/tools/featureSearch.js';
+import { listArticles } from '../src/tools/listArticles.js';
+import { ARTICLES } from '../src/data/articles.js';
 
 test('list_plans returns all 5 tiers when unfiltered', () => {
   const r = listPlans({});
@@ -147,4 +149,113 @@ test('feature_search finds India statutory engines (PF / ESI)', () => {
 test('feature_search respects limit', () => {
   const r = featureSearch({ query: 'tracking', limit: 3 });
   assert.ok(r.results.length <= 3);
+});
+
+// ---------------------------------------------------------------------------
+// list_articles
+// ---------------------------------------------------------------------------
+
+test('list_articles catalog is non-trivial and well-formed', () => {
+  assert.ok(ARTICLES.length >= 30, 'expected at least 30 articles in catalog');
+  for (const a of ARTICLES) {
+    assert.ok(a.id.length > 0, `${a.title}: id must be non-empty`);
+    assert.ok(a.title.length > 0, `${a.id}: title must be non-empty`);
+    assert.ok(a.excerpt.length > 30, `${a.id}: excerpt must be at least 30 chars`);
+    assert.ok(a.excerpt.length <= 320, `${a.id}: excerpt should stay under 320 chars`);
+    assert.ok(a.url.startsWith('https://hellotime.ai/'), `${a.id}: url must be hellotime.ai`);
+    assert.match(a.publishedAt, /^\d{4}-\d{2}-\d{2}$/, `${a.id}: publishedAt must be YYYY-MM-DD`);
+    assert.ok(['blog', 'guide', 'case-study'].includes(a.kind), `${a.id}: kind invalid`);
+    assert.ok(Array.isArray(a.tags) && a.tags.length > 0, `${a.id}: must have at least one tag`);
+  }
+});
+
+test('list_articles ids are unique', () => {
+  const ids = ARTICLES.map((a) => a.id);
+  assert.equal(new Set(ids).size, ids.length, 'duplicate ids in catalog');
+});
+
+test('list_articles unfiltered returns the full catalog (subject to default limit)', () => {
+  const r = listArticles({ limit: 100 });
+  assert.equal(r.totalMatches, ARTICLES.length);
+  assert.equal(r.catalogSize, ARTICLES.length);
+});
+
+test('list_articles country=IN returns India-relevant + global articles', () => {
+  const r = listArticles({ country: 'IN', limit: 100 });
+  assert.ok(r.totalMatches > 0);
+  for (const a of r.articles) {
+    const c = a.countryRelevance ?? 'global';
+    assert.ok(c === 'IN' || c === 'global', `${a.id}: country ${c} should not match IN filter`);
+  }
+  // Sanity — we expect at least one India-specific article in the catalog.
+  assert.ok(
+    r.articles.some((a) => a.countryRelevance === 'IN'),
+    'expected at least one IN article in IN filter results',
+  );
+});
+
+test('list_articles country=US returns only US + global', () => {
+  const r = listArticles({ country: 'US', limit: 100 });
+  for (const a of r.articles) {
+    const c = a.countryRelevance ?? 'global';
+    assert.ok(c === 'US' || c === 'global');
+  }
+});
+
+test('list_articles country=global returns only global articles', () => {
+  const r = listArticles({ country: 'global', limit: 100 });
+  for (const a of r.articles) {
+    assert.equal(a.countryRelevance ?? 'global', 'global');
+  }
+});
+
+test('list_articles tag filter matches case-insensitively', () => {
+  const r = listArticles({ tag: 'Payroll', limit: 100 });
+  assert.ok(r.totalMatches > 0);
+  for (const a of r.articles) {
+    assert.ok(
+      a.tags.some((t) => t.toLowerCase().includes('payroll')),
+      `${a.id}: should have a payroll tag`,
+    );
+  }
+});
+
+test('list_articles query matches across title, excerpt, and tags', () => {
+  // "geofence" is in a case-study description and may appear as a tag.
+  const r = listArticles({ query: 'geofence', limit: 10 });
+  assert.ok(r.totalMatches > 0);
+});
+
+test('list_articles query is multi-term AND', () => {
+  // Both terms must appear; "payroll india" should pick India payroll posts only.
+  const r = listArticles({ query: 'payroll india', limit: 100 });
+  assert.ok(r.totalMatches > 0);
+  for (const a of r.articles) {
+    const blob = `${a.title} ${a.excerpt} ${a.tags.join(' ')}`.toLowerCase();
+    assert.ok(blob.includes('payroll'), `${a.id}: missing "payroll"`);
+    assert.ok(blob.includes('india'), `${a.id}: missing "india"`);
+  }
+});
+
+test('list_articles respects limit', () => {
+  const r = listArticles({ limit: 3 });
+  assert.equal(r.articles.length, 3);
+  assert.equal(r.count, 3);
+});
+
+test('list_articles sorts newest first', () => {
+  const r = listArticles({ limit: 100 });
+  for (let i = 1; i < r.articles.length; i++) {
+    assert.ok(
+      r.articles[i - 1]!.publishedAt >= r.articles[i]!.publishedAt,
+      'articles should be sorted newest-first',
+    );
+  }
+});
+
+test('feature_search surfaces articles in results', () => {
+  // A query that should not hit plans/features/payroll but DOES match a blog.
+  const r = featureSearch({ query: 'erc retention credit' });
+  assert.ok(r.totalMatches > 0, 'expected article hits for ERC query');
+  assert.ok(r.results.some((h) => h.source === 'article'));
 });

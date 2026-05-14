@@ -31,7 +31,8 @@ claude mcp add hellotime-local node /path/to/HelloTime-MCP-Public/dist/stdio.js
 | `list_features` | HelloTime features across 14 categories: shifts, rosters, leave, timesheets, time tracking, productivity, GPS / geofence, biometric kiosk, payroll, invoicing, analytics, projects, reports, integrations. Optional `category` and `plan` filters. |
 | `country_support` | Per-country feature availability and product positioning across IN, AU, GB, US, CA, AE, SG, NZ. |
 | `payroll_capabilities` | For a given country, the supported payroll engines with status. AU STP2 + super, IN PF/ESI/TDS/Form 24Q, US W-2/1099, UK RTI, etc. |
-| `feature_search` | Free-text search across plan features, product features, country features, and payroll engines. |
+| `feature_search` | Free-text search across plan features, product features, country features, payroll engines, and published articles. |
+| `list_articles` | Published content on hellotime.ai — blog posts, evergreen guides, and customer case studies. Optional `country`, `tag`, `query`, `limit` filters. |
 
 ## Resources
 
@@ -63,7 +64,7 @@ npm run audit:public-data
 
 ```
 src/
-  data/             # Static catalogs — plans, features, countries, about
+  data/             # Static catalogs — plans, features, countries, articles, about
   tools/            # One file per MCP tool
   resources/        # MCP resource registry
   server.ts         # MCP server factory (wires tools + resources)

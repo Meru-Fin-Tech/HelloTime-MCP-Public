@@ -14,10 +14,11 @@ import { listFeatures, listFeaturesSchema } from './tools/listFeatures.js';
 import { countrySupport, countrySupportSchema } from './tools/countrySupport.js';
 import { payrollCapabilities, payrollCapabilitiesSchema } from './tools/payrollCapabilities.js';
 import { featureSearch, featureSearchSchema } from './tools/featureSearch.js';
+import { listArticles, listArticlesSchema } from './tools/listArticles.js';
 import { RESOURCES, readResource } from './resources/index.js';
 
 const SERVER_NAME = 'hellotime-public';
-const SERVER_VERSION = '0.1.2';
+const SERVER_VERSION = '0.2.0';
 
 function asJsonContent(payload: unknown) {
   return {
@@ -69,9 +70,16 @@ export function createServer(): McpServer {
 
   server.tool(
     'feature_search',
-    'Free-text search across plan features, product features, country features, and payroll engines.',
+    'Free-text search across plan features, product features, country features, payroll engines, and published articles (blog posts, guides, customer case studies on hellotime.ai).',
     featureSearchSchema,
     async (args) => asJsonContent(featureSearch(args)),
+  );
+
+  server.tool(
+    'list_articles',
+    'List published articles on hellotime.ai — blog posts, evergreen guides, and customer case studies. Filter by country, tag or free-text query. Use this when a user asks "do you have a blog/guide about X?".',
+    listArticlesSchema,
+    async (args) => asJsonContent(listArticles(args)),
   );
 
   // Resources
@@ -88,5 +96,5 @@ export function createServer(): McpServer {
 }
 
 // Re-exports useful for tests
-export { listPlans, listFeatures, countrySupport, payrollCapabilities, featureSearch };
+export { listPlans, listFeatures, countrySupport, payrollCapabilities, featureSearch, listArticles };
 export const _internal = { z };

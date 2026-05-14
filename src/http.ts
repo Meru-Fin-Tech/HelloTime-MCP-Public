@@ -165,9 +165,9 @@ app.get('/health', (_req, res) => {
 app.get('/info', (_req, res) => {
   res.json({
     name: 'hellotime-mcp-public',
-    version: '0.1.2',
+    version: '0.2.0',
     description:
-      'Public read-only MCP server for HelloTime plans, features, country support, and payroll capabilities.',
+      'Public read-only MCP server for HelloTime plans, features, country support, payroll capabilities, and published articles.',
     transport: { http: '/mcp', sse: '/mcp' },
     install: 'claude mcp add --transport http hellotime https://mcp.hellotime.ai/mcp',
     docs: 'https://hellotime.ai/mcp',
