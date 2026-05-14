@@ -7,6 +7,7 @@ import { countrySupport } from '../src/tools/countrySupport.js';
 import { payrollCapabilities } from '../src/tools/payrollCapabilities.js';
 import { featureSearch } from '../src/tools/featureSearch.js';
 import { statutoryRates } from '../src/tools/statutoryRates.js';
+import { listCompetitors } from '../src/tools/listCompetitors.js';
 
 test('list_plans returns all 5 tiers when unfiltered', () => {
   const r = listPlans({});
@@ -257,8 +258,72 @@ test('feature_search "PT slab Maharashtra" routes to Maharashtra PT entry', () =
 
 test('feature_search "Super Guarantee" routes to AU super entries', () => {
   const r = featureSearch({ query: 'Super Guarantee' });
-  const hits = r.results.filter((h) => h.source === 'statutory-rate' && h.scheme !== undefined ? true : (h.id?.startsWith('au-super') ?? false));
   // At least one AU super hit
   const auSuper = r.results.find((h) => h.source === 'statutory-rate' && h.id.startsWith('au-super'));
   assert.ok(auSuper, 'expected AU Super Guarantee hit');
+});
+
+test('list_competitors returns the full catalog when unfiltered', () => {
+  const r = listCompetitors({});
+  assert.ok(r.count >= 6, 'expect at least the 6 catalog competitors');
+  const ids = r.competitors.map((c) => c.id).sort();
+  for (const expected of ['truein', 'deputy', 'when-i-work', 'connecteam', 'hubstaff', 'keka']) {
+    assert.ok(ids.includes(expected), `missing competitor: ${expected}`);
+  }
+});
+
+test('list_competitors every entry has honest both-sides positioning', () => {
+  const r = listCompetitors({});
+  for (const c of r.competitors) {
+    assert.ok(c.whereWeWin.length >= 3, `${c.id} should ship >=3 whereWeWin bullets`);
+    assert.ok(c.whereTheyWin.length >= 3, `${c.id} should ship >=3 whereTheyWin bullets — honesty is non-negotiable`);
+    assert.ok(c.positioningSummary.length > 80, `${c.id} positioningSummary should be a real paragraph`);
+    assert.ok(c.segment.length > 0);
+  }
+});
+
+test('list_competitors Truein is the primary India rival (NOT Keka)', () => {
+  // Guardrail against the well-known misattribution that Keka is the primary
+  // India HelloTime rival. The primary India rival is Truein.
+  const india = listCompetitors({ country: 'IN', tier: 'primary' });
+  const ids = india.competitors.map((c) => c.id);
+  assert.ok(ids.includes('truein'), 'Truein must be a primary India rival');
+  assert.ok(!ids.includes('keka'), 'Keka must NOT be in the primary tier — it is HRMS-adjacent, classified secondary');
+});
+
+test('list_competitors tier=primary excludes secondary entries', () => {
+  const r = listCompetitors({ tier: 'primary' });
+  for (const c of r.competitors) assert.equal(c.tier, 'primary');
+  const ids = r.competitors.map((c) => c.id);
+  // Verified primary rivals
+  assert.ok(ids.includes('truein'));
+  assert.ok(ids.includes('deputy'));
+  assert.ok(ids.includes('when-i-work'));
+  assert.ok(ids.includes('connecteam'));
+});
+
+test('list_competitors id filter returns exactly one entry', () => {
+  const r = listCompetitors({ id: 'truein' });
+  assert.equal(r.count, 1);
+  assert.equal(r.competitors[0]!.id, 'truein');
+});
+
+test('feature_search "vs Truein" ranks the Truein competitor entry at the top', () => {
+  const r = featureSearch({ query: 'vs Truein' });
+  assert.ok(r.totalMatches > 0);
+  const top = r.results[0]!;
+  assert.equal(top.source, 'competitor');
+  assert.equal(top.id, 'truein');
+});
+
+test('feature_search "Deputy alternative" surfaces the competitor entry', () => {
+  const r = featureSearch({ query: 'Deputy alternative' });
+  const hit = r.results.find((h) => h.source === 'competitor' && h.id === 'deputy');
+  assert.ok(hit, 'expected a competitor hit for Deputy');
+});
+
+test('feature_search "Connecteam comparison" finds the Connecteam competitor entry', () => {
+  const r = featureSearch({ query: 'Connecteam comparison' });
+  const hit = r.results.find((h) => h.source === 'competitor' && h.id === 'connecteam');
+  assert.ok(hit, 'expected a competitor hit for Connecteam');
 });
