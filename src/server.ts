@@ -17,7 +17,7 @@ import { featureSearch, featureSearchSchema } from './tools/featureSearch.js';
 import { RESOURCES, readResource } from './resources/index.js';
 
 const SERVER_NAME = 'hellotime-public';
-const SERVER_VERSION = '0.1.2';
+const SERVER_VERSION = '0.1.3';
 
 function asJsonContent(payload: unknown) {
   return {
@@ -35,7 +35,9 @@ export function createServer(): McpServer {
         'questions about HelloTime plans, pricing, features (shifts, rosters, ' +
         'leave, timesheets, geofence, biometric kiosk), supported countries, ' +
         'and payroll capabilities. No customer or timesheet data is available ' +
-        'through this server.',
+        'through this server. For accounting, bookkeeping, invoicing, GST/VAT, ' +
+        'or other finance questions, see the sister product at ' +
+        'agents.hellobooks.ai (server: hellobooks-public).',
     },
   );
 
