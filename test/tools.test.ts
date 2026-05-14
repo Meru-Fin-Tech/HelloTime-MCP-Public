@@ -209,11 +209,11 @@ test('statutory_rates Karnataka PT has ₹25k exemption note from 01-04-2025', (
   assert.equal(exempt.upTo, 25000);
 });
 
-test('statutory_rates AU Super Guarantee shipping at 12% for FY 2025-26 (public-source-unreviewed)', () => {
+test('statutory_rates AU Super Guarantee shipping at 12% for FY 2025-26 (verified)', () => {
   const sg = statutoryRates({ id: 'au-super-guarantee-fy2526' }).rates[0]!;
   assert.equal(sg.rate, 0.12);
   assert.equal(sg.party, 'employer');
-  assert.equal(sg.verification, 'public-source-unreviewed');
+  assert.equal(sg.verification, 'verified');
   assert.equal(sg.currency, 'AUD');
 });
 
@@ -227,19 +227,37 @@ test('statutory_rates US FICA SS at 6.2% + Medicare 1.45%, with 2025 SS wage bas
   assert.equal(med.wageCeiling, undefined);
 });
 
-test('statutory_rates verification=verified excludes AU+US rates', () => {
+test('statutory_rates verification=verified covers all 8 countries after the 2026-05-14 review pass', () => {
   const r = statutoryRates({ verification: 'verified' });
+  const countries = new Set(r.rates.map((x) => x.country));
+  for (const c of ['IN', 'AU', 'US', 'GB', 'CA', 'SG', 'NZ', 'AE']) {
+    assert.ok(countries.has(c as never), `expected ${c} in verified set`);
+  }
   for (const x of r.rates) {
     assert.equal(x.verification, 'verified');
-    assert.equal(x.country, 'IN'); // only IN PF/ESI/PT are verified
   }
+});
+
+test('statutory_rates verification=public-source-unreviewed is now only IN TDS slabs', () => {
+  const r = statutoryRates({ verification: 'public-source-unreviewed' });
+  for (const x of r.rates) {
+    assert.equal(x.verification, 'public-source-unreviewed');
+    assert.equal(x.country, 'IN');
+    assert.equal(x.scheme, 'TDS');
+  }
+  // Both regimes (new + old) must be present.
+  const ids = new Set(r.rates.map((x) => x.id));
+  assert.ok(ids.has('in-tds-new-regime-fy2425'));
+  assert.ok(ids.has('in-tds-old-regime-fy2425'));
 });
 
 test('statutory_rates count breakdown (verifiedCount + unreviewedCount = count)', () => {
   const r = statutoryRates({});
   assert.equal(r.verifiedCount + r.unreviewedCount, r.count);
-  // Verified set should at least cover PF/EPS/EDLI/PFAdmin/ESI/×2 + 7 PT states = 12
-  assert.ok(r.verifiedCount >= 12, `expected >=12 verified entries, got ${r.verifiedCount}`);
+  // After the verification pass, only IN TDS (2 regimes) stays unreviewed.
+  assert.equal(r.unreviewedCount, 2, `expected exactly 2 unreviewed (IN TDS regimes), got ${r.unreviewedCount}`);
+  // Verified set covers IN PF/ESI/PT + AU/US/GB/CA/SG/NZ/AE headline rates.
+  assert.ok(r.verifiedCount >= 50, `expected >=50 verified entries, got ${r.verifiedCount}`);
 });
 
 test('feature_search "PF rate" surfaces the EPF statutory rate entry', () => {
@@ -280,7 +298,7 @@ test('statutory_rates GB NI Class 1 employee — 8% main / 2% additional band (2
   const top = ni.slabs!.find((s) => s.upTo === null)!;
   assert.equal(top.rate, 0.02);
   assert.equal(ni.currency, 'GBP');
-  assert.equal(ni.verification, 'public-source-unreviewed');
+  assert.equal(ni.verification, 'verified');
 });
 
 test('statutory_rates GB NI Class 1 employer is 15% post Autumn Budget 2024', () => {
@@ -354,14 +372,40 @@ test('statutory_rates CA EI — employee 1.64%, employer 1.4× (≈2.296%) on MI
   assert.equal(ee.wageCeiling, 65700);
 });
 
-test('statutory_rates CA federal income tax has 5 brackets 15/20.5/26/29/33', () => {
+test('statutory_rates CA federal income tax has 5 brackets 14.5(blended)/20.5/26/29/33 for tax-year 2025', () => {
   const it = statutoryRates({ id: 'ca-federal-income-tax-2025' }).rates[0]!;
   assert.equal(it.rateType, 'slab');
   assert.equal(it.slabs?.length, 5);
   const rates = it.slabs!.map((s) => s.rate);
-  assert.deepEqual(rates, [0.15, 0.205, 0.26, 0.29, 0.33]);
-  // Note flags provincial stub
+  // Bracket 1 is 14.5% blended for 2025 (mid-year 15% → 14% rate cut on 01-Jul-2025).
+  assert.deepEqual(rates, [0.145, 0.205, 0.26, 0.29, 0.33]);
+  // Note flags provincial stub AND the blended-rate explanation
   assert.ok(it.notes?.some((n) => /STUB|provincial/i.test(n)));
+  assert.ok(it.notes?.some((n) => /blended|14\.5%|01-Jul-2025/i.test(n)));
+});
+
+test('statutory_rates NZ ESCT thresholds match the 01-Apr-2025 bump', () => {
+  const esct = statutoryRates({ id: 'nz-esct-2025' }).rates[0]!;
+  const tops = esct.slabs!.map((s) => s.upTo);
+  // New thresholds from 01-Apr-2025
+  assert.deepEqual(tops, [18720, 64200, 93720, 216000, null]);
+  // Old thresholds (16800/57600/84000) must not have been left behind
+  assert.ok(!tops.includes(16800));
+  assert.ok(!tops.includes(57600));
+  assert.ok(!tops.includes(84000));
+  // Note documents the previous bands so the change is traceable
+  assert.ok(esct.notes?.some((n) => /01-Apr-2025|previous bands/i.test(n)));
+});
+
+test('statutory_rates NZ ACC earner\'s levy ships max liable earnings $152,790', () => {
+  const acc = statutoryRates({ id: 'nz-acc-earners-levy-2025' }).rates[0]!;
+  assert.equal(acc.wageCeiling, 152790);
+  assert.match(acc.appliedTo, /152,790/);
+});
+
+test('statutory_rates AU SG FY 2025-26 notes carry the MSCB $62,500/quarter figure', () => {
+  const sg = statutoryRates({ id: 'au-super-guarantee-fy2526' }).rates[0]!;
+  assert.match(sg.notes?.join(' ') ?? '', /62,500|MSCB/i);
 });
 
 // ---------------------------------------------------------------------------
@@ -494,12 +538,12 @@ test('statutory_rates AE WPS is documented as a process, not a rate (0% + n/a)',
 // Catalog-level invariants for the expanded footprint
 // ---------------------------------------------------------------------------
 
-test('statutory_rates new countries all ship verification=public-source-unreviewed', () => {
+test('statutory_rates new countries all ship verification=verified after the review pass', () => {
   for (const country of ['GB', 'CA', 'SG', 'NZ', 'AE'] as const) {
     const r = statutoryRates({ country });
     assert.ok(r.rates.length > 0, `expected rates for ${country}`);
     for (const x of r.rates) {
-      assert.equal(x.verification, 'public-source-unreviewed', `${x.id} verification`);
+      assert.equal(x.verification, 'verified', `${x.id} verification`);
     }
   }
 });
