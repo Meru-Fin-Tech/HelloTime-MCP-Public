@@ -17,6 +17,7 @@ import { randomUUID } from 'node:crypto';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { createServer } from './server.js';
+import { track } from './analytics.js';
 
 const PORT = Number(process.env.PORT ?? 8080);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -25,13 +26,29 @@ const HOST = process.env.HOST ?? '0.0.0.0';
 // Rate limits
 // ---------------------------------------------------------------------------
 
+/**
+ * Build a 429 handler that emits an `mcp_rate_limited` telemetry event before
+ * sending the rejection response. Replaces the static `message` option;
+ * express-rate-limit invokes this with extra args (next, options) we ignore.
+ */
+function rateLimitHandler(limiter: 'ip' | 'session') {
+  return (req: Request, res: Response): void => {
+    track(
+      'mcp_rate_limited',
+      { limiter, country: req.header('cf-ipcountry') ?? 'unknown' },
+      req.header('mcp-session-id') ?? 'server',
+    );
+    res.status(429).json({ error: `Too many requests (${limiter} rate limit).` });
+  };
+}
+
 // Default keyGenerator in v7+ handles IPv4/IPv6 correctly.
 const ipLimiter = rateLimit({
   windowMs: 60 * 1000,
   limit: 120, // 120 requests / minute / IP
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  message: { error: 'Too many requests from this IP. Limit: 120/min.' },
+  handler: rateLimitHandler('ip'),
 });
 
 const sessionLimiter = rateLimit({
@@ -39,7 +56,7 @@ const sessionLimiter = rateLimit({
   limit: 60, // 60 requests / minute / session
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  message: { error: 'Too many requests on this session. Limit: 60/min.' },
+  handler: rateLimitHandler('session'),
   keyGenerator: (req) => {
     const sid = req.header('mcp-session-id');
     // When no session id yet, fall back to IP via the request socket; the IP
@@ -55,6 +72,7 @@ const sessionLimiter = rateLimit({
 interface SessionEntry {
   transport: StreamableHTTPServerTransport;
   lastUsedAt: number;
+  createdAt: number;
 }
 const sessions = new Map<string, SessionEntry>();
 
@@ -71,6 +89,10 @@ setInterval(() => {
       sessions.delete(id);
     }
   }
+  // Turn the live /health gauge into a 5-minute-resolution concurrency time
+  // series in GA4. Emitted even at 0 — distinguishes "idle" from "server down"
+  // (no event at all). See strategy doc 73 §6e.
+  track('mcp_sessions_snapshot', { active_sessions: sessions.size }, 'server');
 }, 5 * 60 * 1000).unref();
 
 function sendJsonRpcError(
@@ -115,14 +137,35 @@ async function handleMcpRequest(req: Request, res: Response): Promise<void> {
     return;
   }
 
+  // Country from Cloudflare's edge header — no geo-IP library, no raw IP.
+  const country = req.header('cf-ipcountry') ?? 'unknown';
   const transport = new StreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID(),
     onsessioninitialized: (id) => {
-      sessions.set(id, { transport, lastUsedAt: Date.now() });
+      const now = Date.now();
+      sessions.set(id, { transport, lastUsedAt: now, createdAt: now });
+      track(
+        'mcp_session_started',
+        { session_id: id, country, transport: 'streamable-http' },
+        id,
+      );
     },
   });
   transport.onclose = () => {
-    if (transport.sessionId) sessions.delete(transport.sessionId);
+    const closedId = transport.sessionId;
+    if (!closedId) return;
+    const closing = sessions.get(closedId);
+    sessions.delete(closedId);
+    track(
+      'mcp_session_ended',
+      {
+        session_id: closedId,
+        duration_sec: closing
+          ? Math.round((Date.now() - closing.createdAt) / 1000)
+          : 0,
+      },
+      closedId,
+    );
   };
   const server = createServer();
   await server.connect(transport);
