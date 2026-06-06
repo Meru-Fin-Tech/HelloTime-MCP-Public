@@ -18,6 +18,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { createServer } from './server.js';
 import { track } from './analytics.js';
+import { emitMcpAnalytics } from './requestAnalytics.js';
 
 const PORT = Number(process.env.PORT ?? 8080);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -216,6 +217,33 @@ app.get('/info', (_req, res) => {
     docs: 'https://hellotime.ai/mcp',
     repository: 'https://github.com/Meru-Fin-Tech/HelloTime-MCP-Public',
   });
+});
+
+// Layer-1 transport telemetry: one event set per finished /mcp request. Mounted
+// BEFORE the limiters so rate-limited (429) responses are still counted. Records
+// on `res.on('finish')` — after the response is fully sent — so it never delays
+// a request, and all emission is wrapped (see emitMcpAnalytics) so a telemetry
+// fault can never break an MCP response. CORS preflights (OPTIONS) already
+// short-circuited above and never reach here.
+app.use('/mcp', (req, res, next) => {
+  const startedAt = Date.now();
+  res.on('finish', () => {
+    emitMcpAnalytics(
+      {
+        body: req.body,
+        userAgent: req.header('user-agent'),
+        origin: req.header('origin'),
+        referer: req.header('referer'),
+        country: req.header('cf-ipcountry'),
+        sessionId: req.header('mcp-session-id'),
+        httpMethod: req.method,
+        status: res.statusCode,
+        durationMs: Date.now() - startedAt,
+      },
+      track,
+    );
+  });
+  next();
 });
 
 app.use('/mcp', ipLimiter, sessionLimiter);

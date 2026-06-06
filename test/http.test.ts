@@ -104,6 +104,21 @@ test('OPTIONS /mcp preflight returns 204 and exposes mcp-session-id', async () =
   );
 });
 
+test('request with a bot User-Agent still gets a normal MCP response', async () => {
+  // The request-analytics middleware runs on `finish`; a crawler UA must not
+  // change the response. (GA4 vars are unset here, so `track` is a no-op.)
+  const res = await rpc(
+    { jsonrpc: '2.0', id: 1, method: 'tools/list' },
+    {
+      'user-agent': 'Mozilla/5.0 (compatible; GPTBot/1.1; +https://openai.com/gptbot)',
+    },
+  );
+  // No session id + non-initialize → the usual 400, unaffected by analytics.
+  assert.equal(res.status, 400);
+  const body = await res.json();
+  assert.equal(body.error.code, -32000);
+});
+
 test('initialize returns a session id usable for follow-ups', async () => {
   const init = await rpc({
     jsonrpc: '2.0',
