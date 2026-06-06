@@ -88,7 +88,9 @@ Optional anonymous usage telemetry (Layer-2 server-side analytics) is sent to GA
 the Measurement Protocol when `GA4_MEASUREMENT_ID` and `GA4_API_SECRET` are both set —
 see `.env.example` and `src/analytics.ts`. Leave them unset and the server runs with
 telemetry fully disabled. No customer data, request bodies, tool-argument values, or
-IP addresses are ever sent — only anonymous counts. See strategy doc 73.
+IP addresses are ever sent — only anonymous counts. See strategy doc 73 and
+[`docs/MCP_ANALYTICS.md`](docs/MCP_ANALYTICS.md) for the request-traffic events
+(`mcp_request`, `mcp_tool_call`, `mcp_bot_visit`, `mcp_error`) and client/bot detection.
 
 ```bash
 docker build -t hellotime-mcp-public .
