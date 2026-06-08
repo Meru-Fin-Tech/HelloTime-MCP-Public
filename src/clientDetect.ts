@@ -34,6 +34,40 @@ export interface ClientDetection {
 }
 
 /**
+ * Coarse, single-axis "type" of the caller, derived from `client` + `is_bot`.
+ * A bounded enum (never attacker-controlled text) suitable for grouping
+ * traffic into AI agents vs crawlers vs human browsers vs tooling.
+ */
+export type ClientType = 'ai_client' | 'bot' | 'browser' | 'tool' | 'unknown';
+
+/** Client labels we count as first-party AI agents (not crawlers). */
+const AI_CLIENT_LABELS: ReadonlySet<ClientLabel> = new Set<ClientLabel>([
+  'chatgpt',
+  'openai',
+  'claude',
+  'cursor',
+  'perplexity',
+  'gemini',
+  'copilot',
+]);
+
+/**
+ * Collapse a {@link ClientDetection} into one {@link ClientType} bucket.
+ *
+ * A recognised crawler always wins (`bot`), so an AI crawler such as `GPTBot`
+ * is typed as `bot` even though its UA also engine-matches `browser`. Otherwise
+ * the AI-client allow-list maps to `ai_client`, `postman` to `tool`, the
+ * browser fallback to `browser`, and everything else to `unknown`.
+ */
+export function clientType(detection: ClientDetection): ClientType {
+  if (detection.is_bot) return 'bot';
+  if (AI_CLIENT_LABELS.has(detection.client)) return 'ai_client';
+  if (detection.client === 'postman') return 'tool';
+  if (detection.client === 'browser') return 'browser';
+  return 'unknown';
+}
+
+/**
  * Known crawlers, matched first (most specific). Each tuple is
  * `[lowercase-substring, canonical-label]`. Order matters only where one token
  * is a substring of another — here they are all distinct.
