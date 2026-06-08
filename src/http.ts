@@ -220,14 +220,24 @@ app.get('/info', (_req, res) => {
 });
 
 // Layer-1 transport telemetry: one event set per finished /mcp request. Mounted
-// BEFORE the limiters so rate-limited (429) responses are still counted. Records
-// on `res.on('finish')` — after the response is fully sent — so it never delays
-// a request, and all emission is wrapped (see emitMcpAnalytics) so a telemetry
-// fault can never break an MCP response. CORS preflights (OPTIONS) already
-// short-circuited above and never reach here.
+// BEFORE the limiters so rate-limited (429) responses are still counted.
+//
+// We record on BOTH `finish` (response fully flushed) and `close` (connection
+// torn down). The SSE `GET /mcp` transport keeps a stream open and is commonly
+// aborted by the client mid-stream — that fires `close` WITHOUT `finish`, so a
+// finish-only hook would silently miss exactly the transport we label as `sse`.
+// A once-guard makes the normal path (finish, then close) emit a single event.
+// When the response was not fully sent we report status 499 (client-closed)
+// rather than the misleading default 200. Emission runs after the response is
+// off the request path so it never delays it, and is fully wrapped (see
+// emitMcpAnalytics) so a telemetry fault can never break an MCP response. CORS
+// preflights (OPTIONS) already short-circuited above and never reach here.
 app.use('/mcp', (req, res, next) => {
   const startedAt = Date.now();
-  res.on('finish', () => {
+  let emitted = false;
+  const record = () => {
+    if (emitted) return;
+    emitted = true;
     emitMcpAnalytics(
       {
         body: req.body,
@@ -237,12 +247,14 @@ app.use('/mcp', (req, res, next) => {
         country: req.header('cf-ipcountry'),
         sessionId: req.header('mcp-session-id'),
         httpMethod: req.method,
-        status: res.statusCode,
+        status: res.writableFinished ? res.statusCode : 499,
         durationMs: Date.now() - startedAt,
       },
       track,
     );
-  });
+  };
+  res.on('finish', record);
+  res.on('close', record);
   next();
 });
 
