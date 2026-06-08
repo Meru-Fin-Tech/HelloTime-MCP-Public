@@ -1,0 +1,44 @@
+name: SonarQube
+
+# Runs the test suite with coverage, then the SonarQube scan + quality gate.
+# The coverage step MUST run before the scan: it writes coverage/lcov.info,
+# which sonar-project.properties references via sonar.javascript.lcov.reportPaths.
+# Without it, Sonar reports 0% coverage even though the suite covers ~99% of src/.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  sonarqube:
+    name: Scan & Quality Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so Sonar's "new code" detection has accurate git blame.
+          # (Shallow clones make every line look new — the original gate failure.)
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          # Node's built-in `lcov` test reporter requires Node >= 22.
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests with coverage (writes coverage/lcov.info)
+        run: npm run coverage
+
+      - name: SonarQube scan + quality gate
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          # Block the build if the quality gate fails.
+          args: -Dsonar.qualitygate.wait=true
