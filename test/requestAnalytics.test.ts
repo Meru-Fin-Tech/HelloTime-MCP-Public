@@ -12,8 +12,10 @@ import assert from 'node:assert/strict';
 
 import {
   buildMcpEvents,
+  buildMcpRecord,
   emitMcpAnalytics,
   extractMcp,
+  hostOf,
   safeHost,
   type AnalyticsEvent,
   type EventParams,
@@ -128,6 +130,101 @@ test('safeHost keeps only the hostname and drops IP literals', () => {
   assert.equal(safeHost('not a url'), '');
 });
 
+test('hostOf extracts a single host independently and drops unsafe values', () => {
+  assert.equal(hostOf('https://claude.ai/x'), 'claude.ai');
+  assert.equal(hostOf('http://127.0.0.1:8080'), '');
+  assert.equal(hostOf('null'), '');
+  assert.equal(hostOf(undefined), '');
+});
+
+test('origin and referer hosts are emitted as separate params', () => {
+  const req = byName(
+    buildMcpEvents(
+      meta({ origin: 'https://claude.ai', referer: 'https://chatgpt.com/c/1' }),
+    ),
+    'mcp_request',
+  )!;
+  assert.equal(req.params.origin_host, 'claude.ai');
+  assert.equal(req.params.referer_host, 'chatgpt.com');
+});
+
+// --- client_type + http_method ---------------------------------------------
+
+test('client_type is ai_client for an AI UA, http_method echoes the verb', () => {
+  const req = byName(
+    buildMcpEvents(meta({ userAgent: 'Claude-User/1.0', httpMethod: 'POST' })),
+    'mcp_request',
+  )!;
+  assert.equal(req.params.client, 'claude');
+  assert.equal(req.params.client_type, 'ai_client');
+  assert.equal(req.params.http_method, 'POST');
+});
+
+test('client_type is bot for a recognised crawler UA', () => {
+  const req = byName(
+    buildMcpEvents(meta({ userAgent: 'Mozilla/5.0 (compatible; GPTBot/1.1)' })),
+    'mcp_request',
+  )!;
+  assert.equal(req.params.client_type, 'bot');
+});
+
+// --- buildMcpRecord (structured store row) ---------------------------------
+
+test('buildMcpRecord maps every field for a tools/call request', () => {
+  const row = buildMcpRecord(
+    meta({
+      body: { method: 'tools/call', params: { name: 'list_plans' } },
+      userAgent: 'Claude-User/1.0',
+      origin: 'https://claude.ai',
+      referer: 'https://claude.ai/chat',
+      country: 'IN',
+      httpMethod: 'POST',
+      status: 200,
+      durationMs: 14,
+    }),
+  );
+  assert.equal(row.endpoint, '/mcp');
+  assert.equal(row.httpMethod, 'POST');
+  assert.equal(row.mcpMethod, 'tools/call');
+  assert.equal(row.toolName, 'list_plans');
+  assert.equal(row.clientName, 'claude');
+  assert.equal(row.clientType, 'ai_client');
+  assert.equal(row.isBot, false);
+  assert.equal(row.botName, '');
+  assert.equal(row.originHost, 'claude.ai');
+  assert.equal(row.refererHost, 'claude.ai');
+  assert.equal(row.country, 'IN');
+  assert.equal(row.statusCode, 200);
+  assert.equal(row.success, true);
+  assert.equal(row.responseTimeMs, 14);
+  assert.equal(row.metadata.transport, 'streamable-http');
+});
+
+test('buildMcpRecord defaults country to unknown and never carries raw UA', () => {
+  const secretUa = 'Mozilla/5.0 SecretToken=abc123';
+  const row = buildMcpRecord(meta({ userAgent: secretUa }));
+  assert.equal(row.country, 'unknown');
+  assert.ok(!JSON.stringify(row).includes('SecretToken=abc123'));
+});
+
+test('emitMcpAnalytics forwards a structured row to the record sink', () => {
+  const rows: unknown[] = [];
+  emitMcpAnalytics(
+    meta({ body: { method: 'tools/call', params: { name: 'list_plans' } } }),
+    () => {},
+    (row) => rows.push(row),
+  );
+  assert.equal(rows.length, 1);
+});
+
+test('emitMcpAnalytics never throws when the record sink throws', () => {
+  assert.doesNotThrow(() =>
+    emitMcpAnalytics(meta(), () => {}, () => {
+      throw new Error('store exploded');
+    }),
+  );
+});
+
 // --- failure safety --------------------------------------------------------
 
 test('emitMcpAnalytics never throws even when the sink throws', () => {
@@ -174,11 +271,14 @@ const ALLOWED_KEYS = new Set([
   'success',
   'duration_ms',
   'client',
+  'client_type',
   'bot',
   'is_bot',
   'transport',
+  'http_method',
   'country',
   'origin_host',
+  'referer_host',
 ]);
 
 test('no event carries a key outside the safe allow-list', () => {

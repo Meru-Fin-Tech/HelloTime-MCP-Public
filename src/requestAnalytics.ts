@@ -17,7 +17,8 @@
  *     never surface to — or break — an MCP response.
  */
 
-import { detectClient } from './clientDetect.js';
+import { detectClient, clientType } from './clientDetect.js';
+import type { AnalyticsRecord } from './analyticsStore.js';
 
 /** Flat, GA4-safe params. No nested objects, no arrays. */
 export type EventParams = Record<string, string | number | boolean>;
@@ -38,11 +39,13 @@ export type TrackFn = (name: string, params: EventParams, clientId: string) => v
 export interface McpRequestMeta {
   /** Parsed JSON-RPC body (express.json output). Read for `method`/tool only. */
   body: unknown;
+  /** Request path. Defaults to `/mcp`; recorded for forward-compatibility. */
+  endpoint?: string;
   /** Raw User-Agent — classified then discarded. */
   userAgent?: string;
   /** `Origin` header, if any — reduced to a hostname. */
   origin?: string;
-  /** `Referer` header, if any — fallback for `origin`. */
+  /** `Referer` header, if any — reduced to a hostname independently of origin. */
   referer?: string;
   /** Cloudflare edge country header. */
   country?: string;
@@ -102,12 +105,13 @@ function isIpLiteral(host: string): boolean {
 }
 
 /**
- * Reduce an Origin/Referer to a bare hostname, or '' when unsafe/absent.
- * Only the host is kept — never the path or query — and IP literals are
- * dropped so this can never become a raw-IP leak.
+ * Reduce a single URL (Origin or Referer) to a bare hostname, or '' when
+ * unsafe/absent. Only the host is kept — never the path or query — and IP
+ * literals are dropped so this can never become a raw-IP leak. The literal
+ * string `'null'` (an opaque Origin) is treated as absent.
  */
-export function safeHost(origin?: string, referer?: string): string {
-  const raw = (origin && origin !== 'null' ? origin : '') || referer || '';
+export function hostOf(url?: string): string {
+  const raw = url && url !== 'null' ? url : '';
   if (!raw) return '';
   try {
     const host = new URL(raw).hostname.toLowerCase();
@@ -119,6 +123,15 @@ export function safeHost(origin?: string, referer?: string): string {
 }
 
 /**
+ * Reduce an Origin/Referer pair to a bare hostname, preferring Origin and
+ * falling back to Referer. Retained for the GA4 `origin_host` param and
+ * existing callers; see {@link hostOf} for the per-header variant.
+ */
+export function safeHost(origin?: string, referer?: string): string {
+  return hostOf(origin) || hostOf(referer);
+}
+
+/**
  * Build the GA4 events for one finished request. Pure and total: never throws,
  * never performs I/O. Always emits `mcp_request`; conditionally adds
  * `mcp_tool_call` (tools/call), `mcp_bot_visit` (recognised crawler), and
@@ -126,9 +139,11 @@ export function safeHost(origin?: string, referer?: string): string {
  */
 export function buildMcpEvents(meta: McpRequestMeta): AnalyticsEvent[] {
   const { method, tool } = extractMcp(meta.body);
-  const { client, bot, is_bot } = detectClient(meta.userAgent);
+  const detection = detectClient(meta.userAgent);
+  const { client, bot, is_bot } = detection;
   const country = meta.country ?? 'unknown';
-  const host = safeHost(meta.origin, meta.referer);
+  const originHost = hostOf(meta.origin);
+  const refererHost = hostOf(meta.referer);
   const clientId = meta.sessionId ?? 'server';
   const status = meta.status;
   const transport = meta.httpMethod === 'GET' ? 'sse' : 'streamable-http';
@@ -140,12 +155,15 @@ export function buildMcpEvents(meta: McpRequestMeta): AnalyticsEvent[] {
     success: status < 400,
     duration_ms: meta.durationMs,
     client,
+    client_type: clientType(detection),
     bot: bot || 'none',
     is_bot,
     transport,
+    http_method: meta.httpMethod,
     country,
   };
-  if (host) base.origin_host = host;
+  if (originHost) base.origin_host = originHost;
+  if (refererHost) base.referer_host = refererHost;
 
   const events: AnalyticsEvent[] = [
     { name: 'mcp_request', params: base, clientId },
@@ -185,13 +203,55 @@ export function buildMcpEvents(meta: McpRequestMeta): AnalyticsEvent[] {
   return events;
 }
 
+/** Sink that persists a structured record — matches AnalyticsStore.record. */
+export type RecordFn = (row: Omit<AnalyticsRecord, 'id' | 'createdAt'>) => void;
+
+/**
+ * Build the structured analytics record for one finished request. Pure and
+ * total: never throws, never performs I/O. `id` and `createdAt` are stamped by
+ * the store, not here. Same privacy guarantees as {@link buildMcpEvents} — only
+ * derived, bounded labels and scalars; no raw UA / IP / body / args / headers.
+ */
+export function buildMcpRecord(
+  meta: McpRequestMeta,
+): Omit<AnalyticsRecord, 'id' | 'createdAt'> {
+  const { method, tool } = extractMcp(meta.body);
+  const detection = detectClient(meta.userAgent);
+  const status = meta.status;
+  return {
+    endpoint: meta.endpoint ?? '/mcp',
+    httpMethod: meta.httpMethod,
+    mcpMethod: method,
+    toolName: tool,
+    clientName: detection.client,
+    clientType: clientType(detection),
+    isBot: detection.is_bot,
+    botName: detection.bot,
+    originHost: hostOf(meta.origin),
+    refererHost: hostOf(meta.referer),
+    country: meta.country ?? 'unknown',
+    statusCode: status,
+    success: status < 400,
+    responseTimeMs: meta.durationMs,
+    metadata: { transport: meta.httpMethod === 'GET' ? 'sse' : 'streamable-http' },
+  };
+}
+
 /**
  * Build and emit the events through `sink`, swallowing every error. This is the
  * single entry point the HTTP layer calls; it guarantees analytics can never
  * throw into the request lifecycle, satisfying "analytics failure must never
  * break an MCP response".
+ *
+ * When `recordSink` is supplied it also persists the structured record (for the
+ * in-memory store behind the internal endpoint). Each sink is isolated: a fault
+ * in one never stops the other, and the whole call never throws.
  */
-export function emitMcpAnalytics(meta: McpRequestMeta, sink: TrackFn): void {
+export function emitMcpAnalytics(
+  meta: McpRequestMeta,
+  sink: TrackFn,
+  recordSink?: RecordFn,
+): void {
   try {
     for (const ev of buildMcpEvents(meta)) {
       try {
@@ -201,6 +261,13 @@ export function emitMcpAnalytics(meta: McpRequestMeta, sink: TrackFn): void {
       }
     }
   } catch {
-    /* defence in depth — emitMcpAnalytics never throws */
+    /* defence in depth — the GA4 path never throws */
+  }
+  if (recordSink) {
+    try {
+      recordSink(buildMcpRecord(meta));
+    } catch {
+      /* the store path is independent — its failure must not surface */
+    }
   }
 }

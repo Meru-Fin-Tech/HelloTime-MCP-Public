@@ -19,6 +19,8 @@ import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { createServer } from './server.js';
 import { track } from './analytics.js';
 import { emitMcpAnalytics } from './requestAnalytics.js';
+import { analyticsStore } from './analyticsStore.js';
+import { createInternalAnalyticsRouter } from './internalAnalytics.js';
 import { SERVER_VERSION, SERVER_DESCRIPTION } from './version.js';
 
 const PORT = Number(process.env.PORT ?? 8080);
@@ -219,6 +221,11 @@ app.get('/info', (_req, res) => {
   });
 });
 
+// Protected internal analytics over the in-memory store. OFF by default: with
+// ANALYTICS_ADMIN_TOKEN unset every route 404s. Mounted off `/mcp` so it never
+// touches the public MCP request path. See src/internalAnalytics.ts.
+app.use('/internal/analytics', createInternalAnalyticsRouter(analyticsStore));
+
 // Layer-1 transport telemetry: one event set per finished /mcp request. Mounted
 // BEFORE the limiters so rate-limited (429) responses are still counted.
 //
@@ -251,6 +258,7 @@ app.use('/mcp', (req, res, next) => {
         durationMs: Date.now() - startedAt,
       },
       track,
+      (row) => analyticsStore.record(row),
     );
   };
   res.on('finish', record);

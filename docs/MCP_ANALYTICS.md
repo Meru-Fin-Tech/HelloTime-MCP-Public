@@ -4,15 +4,21 @@ This document describes the server-side analytics that the HelloTime public MCP
 server emits for traffic on the `/mcp` endpoint. It complements the scoping
 [implementation plan](./mcp-analytics-implementation-plan.md).
 
-There are **two layers** of telemetry, both sent to the same GA4 sink:
+There are **two telemetry layers** (both sent to the GA4 sink) plus a **local
+store** that backs a protected internal endpoint:
 
-| Layer | Source | Granularity | Events |
+| Layer | Source | Granularity | Output |
 |---|---|---|---|
-| **L1 — transport** | [`src/requestAnalytics.ts`](../src/requestAnalytics.ts) via [`src/http.ts`](../src/http.ts) | one set per HTTP request to `/mcp` | `mcp_request`, `mcp_tool_call`, `mcp_bot_visit`, `mcp_error` |
-| **L2 — tool** | [`src/server.ts`](../src/server.ts) | one per tool execution | `mcp_session_started/ended`, `mcp_tool_called`, `mcp_tool_errored`, `mcp_resource_read`, `mcp_rate_limited`, `mcp_sessions_snapshot` |
+| **L1 — transport** | [`src/requestAnalytics.ts`](../src/requestAnalytics.ts) via [`src/http.ts`](../src/http.ts) | one set per HTTP request to `/mcp` | GA4: `mcp_request`, `mcp_tool_call`, `mcp_bot_visit`, `mcp_error` |
+| **L2 — tool** | [`src/server.ts`](../src/server.ts) | one per tool execution | GA4: `mcp_session_started/ended`, `mcp_tool_called`, `mcp_tool_errored`, `mcp_resource_read`, `mcp_rate_limited`, `mcp_sessions_snapshot` |
+| **Store** | [`src/analyticsStore.ts`](../src/analyticsStore.ts) | one row per finished `/mcp` request | In-memory ring buffer → internal endpoint (§10) |
 
-This page focuses on **Layer 1** (the new request-traffic analytics). Layer 2
-already existed; see [`src/analytics.ts`](../src/analytics.ts).
+This page focuses on **Layer 1** (the request-traffic analytics) and the **store**.
+Layer 2 already existed; see [`src/analytics.ts`](../src/analytics.ts).
+
+> **No database.** The store is a bounded, process-local ring buffer — it adds
+> no DB, ORM, migration, or persisted file, consistent with the repo's "NO
+> database, NO customer data" design. It resets to empty on restart.
 
 ---
 
@@ -30,11 +36,14 @@ server emits an `mcp_request` event and, conditionally, up to three more.
 | `success` | boolean | `true` | `status < 400` |
 | `duration_ms` | number | `14` | Wall-clock request duration |
 | `client` | string | `claude` | Derived client label (see [client detection](#5-how-ai-clients-are-detected)) |
+| `client_type` | string | `ai_client` | `ai_client` / `bot` / `browser` / `tool` / `unknown` |
 | `bot` | string | `none` | Derived crawler label, or `none` |
 | `is_bot` | boolean | `false` | Whether a known crawler was detected |
 | `transport` | string | `streamable-http` | `streamable-http` (POST/DELETE) or `sse` (GET) |
+| `http_method` | string | `POST` | Raw HTTP verb (`GET` / `POST` / `DELETE`) |
 | `country` | string | `IN` | From the `cf-ipcountry` edge header, or `unknown` |
-| `origin_host` | string (optional) | `claude.ai` | Hostname of `Origin`/`Referer`, IPs dropped |
+| `origin_host` | string (optional) | `claude.ai` | Hostname of `Origin`, IP literals dropped |
+| `referer_host` | string (optional) | `chatgpt.com` | Hostname of `Referer`, IP literals dropped |
 
 ### `mcp_tool_call` (when `mcp_method === "tools/call"`)
 Same param shape as `mcp_request`, so tool invocations can be analysed on their
@@ -76,8 +85,10 @@ Never read, never sent:
   are dropped).
 
 The emitted param keys are restricted to a fixed allow-list
-(`mcp_method, tool_name, status, success, duration_ms, client, bot, is_bot,
-transport, country, origin_host`) — enforced by a test.
+(`mcp_method, tool_name, status, success, duration_ms, client, client_type,
+bot, is_bot, transport, http_method, country, origin_host, referer_host`) —
+enforced by a test. The in-memory store row (§10) holds the same derived,
+bounded fields and nothing else.
 
 ---
 
@@ -261,3 +272,61 @@ allowed from the host.
       in GA4 DebugView.
 - [ ] Existing MCP behaviour unchanged (analytics is request-finish only and
       fully wrapped — a telemetry fault cannot affect responses).
+- [ ] `ANALYTICS_ADMIN_TOKEN` set only if you want the internal endpoint (§10)
+      enabled; otherwise leave blank (every route 404s).
+
+---
+
+## 10. In-memory store & protected internal endpoint
+
+Alongside the GA4 events, each finished `/mcp` request is recorded as one
+structured row in a process-local **ring buffer**
+([`src/analyticsStore.ts`](../src/analyticsStore.ts)) — the repo's DB-free
+"storage" layer. The buffer is bounded (default 1000 rows; oldest evicted),
+holds **no** raw UA / IP / body / args / auth headers / cookies, and is **not
+persisted** — a restart starts it empty.
+
+### Record fields
+`id`, `createdAt`, `endpoint`, `httpMethod`, `mcpMethod`, `toolName`,
+`clientName`, `clientType`, `isBot`, `botName`, `originHost`, `refererHost`,
+`country`, `statusCode`, `success`, `responseTimeMs`, `metadata`. `id` is a
+per-process counter and `createdAt` is stamped on insert; both reset on restart.
+`metadata` carries only derived scalars (e.g. `{ transport }`).
+
+### Layering
+The flow follows the repo's existing module idiom (no classes-per-layer dogma):
+
+| Role | Module |
+|---|---|
+| Repository (storage) | [`src/analyticsStore.ts`](../src/analyticsStore.ts) — `AnalyticsStore`, singleton `analyticsStore` |
+| Service (build row + events) | [`src/requestAnalytics.ts`](../src/requestAnalytics.ts) — `buildMcpRecord`, `emitMcpAnalytics` |
+| Controller (HTTP) | [`src/internalAnalytics.ts`](../src/internalAnalytics.ts) — `createInternalAnalyticsRouter` |
+
+The store sink is passed to `emitMcpAnalytics` from
+[`src/http.ts`](../src/http.ts) as a third argument; it runs in its own
+try/catch, independent of the GA4 path, so neither can break the response.
+
+### Endpoint
+Mounted at `/internal/analytics`, **outside** `/mcp`, and **off by default**:
+
+- `ANALYTICS_ADMIN_TOKEN` unset → every route returns `404` (feature disabled).
+- Set the token → authenticate with `Authorization: Bearer <token>`
+  (constant-time compare; missing/invalid → `401`).
+
+| Route | Returns |
+|---|---|
+| `GET /internal/analytics/summary` | Cumulative aggregates: totals, success/error/bot counts, avg response time, and counts by method / tool / client / clientType / bot / status. |
+| `GET /internal/analytics/recent?limit=N` | The `N` most recent rows (newest first), `1 ≤ N ≤ 1000`, default 100. |
+
+```bash
+export ANALYTICS_ADMIN_TOKEN=$(openssl rand -hex 32)
+npm run dev
+# ... drive some /mcp traffic ...
+curl -s http://127.0.0.1:8080/internal/analytics/summary \
+  -H "authorization: Bearer $ANALYTICS_ADMIN_TOKEN"
+curl -s "http://127.0.0.1:8080/internal/analytics/recent?limit=20" \
+  -H "authorization: Bearer $ANALYTICS_ADMIN_TOKEN"
+```
+
+> Aggregate counters are cumulative (they survive ring-buffer eviction);
+> `avgResponseTimeMs` is over the rows currently retained.
