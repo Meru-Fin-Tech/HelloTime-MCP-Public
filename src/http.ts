@@ -19,6 +19,7 @@ import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { createServer } from './server.js';
 import { track } from './analytics.js';
 import { emitMcpAnalytics } from './requestAnalytics.js';
+import { SERVER_VERSION, SERVER_DESCRIPTION } from './version.js';
 
 const PORT = Number(process.env.PORT ?? 8080);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -209,9 +210,8 @@ app.get('/health', (_req, res) => {
 app.get('/info', (_req, res) => {
   res.json({
     name: 'hellotime-mcp-public',
-    version: '0.1.2',
-    description:
-      'Public read-only MCP server for HelloTime plans, features, country support, and payroll capabilities.',
+    version: SERVER_VERSION,
+    description: SERVER_DESCRIPTION,
     transport: { http: '/mcp', sse: '/mcp' },
     install: 'claude mcp add --transport http hellotime https://mcp.hellotime.ai/mcp',
     docs: 'https://hellotime.ai/mcp',

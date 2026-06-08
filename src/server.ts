@@ -19,9 +19,9 @@ import { listCompetitors, listCompetitorsSchema } from './tools/listCompetitors.
 import { localPaymentMethods, localPaymentMethodsSchema } from './tools/paymentMethods.js';
 import { RESOURCES, readResource } from './resources/index.js';
 import { track } from './analytics.js';
+import { SERVER_VERSION } from './version.js';
 
 const SERVER_NAME = 'hellotime-public';
-const SERVER_VERSION = '0.3.0';
 
 function asJsonContent(payload: unknown) {
   return {
