@@ -1,8 +1,5 @@
 import { z } from 'zod';
-import {
-  PAYMENT_METHODS,
-  HELLOTIME_USE_CASES,
-} from '../data/paymentMethods.js';
+import { PAYMENT_METHODS } from '../data/paymentMethods.js';
 import type {
   PaymentMethod,
   PaymentRail,
@@ -43,31 +40,30 @@ export function localPaymentMethods(args: LocalPaymentMethodsArgs) {
   if (args.id) {
     const idLc = args.id.toLowerCase();
     results = results.filter((m) => m.id === idLc);
+  } else if (args.useCase) {
+    // An explicit `useCase` argument bypasses the default scope.
+    const uc = args.useCase;
+    results = results.filter((m) => m.useCases.includes(uc));
   } else {
     // Default scope: only show entries whose useCases intersect HelloTime's
-    // workforce-management scope (payroll + contractor payouts). An explicit
-    // `useCase` argument bypasses the default scope.
-    if (args.useCase) {
-      const uc = args.useCase;
-      results = results.filter((m) => m.useCases.includes(uc));
-    } else {
-      results = results.filter((m) =>
-        m.useCases.some((u) => TOOL_USE_CASES.includes(u)),
-      );
-    }
+    // workforce-management scope (payroll + contractor payouts).
+    results = results.filter((m) =>
+      m.useCases.some((u) => TOOL_USE_CASES.includes(u)),
+    );
   }
 
   if (args.country) results = results.filter((m) => m.country === args.country);
   if (args.rail) results = results.filter((m) => m.rail === args.rail);
 
+  let scope: string;
+  if (args.useCase) scope = `useCase=${args.useCase}`;
+  else if (args.id) scope = `id=${args.id}`;
+  else scope = `default (${TOOL_USE_CASES.join(', ')})`;
+
   return {
     methods: results,
     count: results.length,
-    scope: args.useCase
-      ? `useCase=${args.useCase}`
-      : args.id
-        ? `id=${args.id}`
-        : `default (${TOOL_USE_CASES.join(', ')})`,
+    scope,
     disclaimer:
       'Payment-rail availability, per-transaction caps, and settlement windows ' +
       'change with operator notifications (NPCI, Pay.UK, Nacha, NPP Australia, ' +

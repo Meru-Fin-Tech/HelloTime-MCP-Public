@@ -78,8 +78,9 @@ export function track(
   });
 
   // Deliberately not awaited. The `.catch` swallows network/DNS failures so a
-  // telemetry outage can never surface to — or slow down — an MCP client.
-  void fetch(endpoint, {
+  // telemetry outage can never surface to — or slow down — an MCP client. The
+  // attached `.catch` keeps this fire-and-forget call from rejecting unhandled.
+  fetch(endpoint, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body,
