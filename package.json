@@ -24,6 +24,8 @@
     "dev": "tsx watch src/http.ts",
     "dev:stdio": "tsx src/stdio.ts",
     "test": "node --test --import tsx test/*.test.ts",
+    "precoverage": "node -e \"require('fs').mkdirSync('coverage',{recursive:true})\"",
+    "coverage": "node --test --experimental-test-coverage --test-coverage-exclude=\"test/**\" --test-reporter=lcov --test-reporter-destination=coverage/lcov.info --test-reporter=spec --test-reporter-destination=stdout --import tsx test/*.test.ts",
     "lint": "tsc --noEmit",
     "audit:public-data": "node --import tsx scripts/audit-public-data.ts"
   },
