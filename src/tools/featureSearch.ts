@@ -41,11 +41,8 @@ function score(haystack: string, terms: string[]): number {
   return s;
 }
 
-export function featureSearch(args: FeatureSearchArgs) {
-  const limit = args.limit ?? 20;
-  const terms = args.query.trim().split(/\s+/).filter(Boolean);
+function scorePlanFeatures(terms: string[]): FeatureSearchHit[] {
   const hits: FeatureSearchHit[] = [];
-
   for (const plan of PLANS) {
     for (const f of plan.features) {
       const s = score(f, terms);
@@ -62,10 +59,13 @@ export function featureSearch(args: FeatureSearchArgs) {
       }
     }
   }
+  return hits;
+}
 
+function scoreFeatureCatalog(terms: string[]): FeatureSearchHit[] {
+  const hits: FeatureSearchHit[] = [];
   for (const f of FEATURES) {
-    const blob = `${f.label} ${f.description} ${f.category}`;
-    const s = score(blob, terms);
+    const s = score(`${f.label} ${f.description} ${f.category}`, terms);
     if (s > 0) {
       hits.push({
         source: 'feature',
@@ -78,7 +78,11 @@ export function featureSearch(args: FeatureSearchArgs) {
       });
     }
   }
+  return hits;
+}
 
+function scoreCountryFeatures(terms: string[]): FeatureSearchHit[] {
+  const hits: FeatureSearchHit[] = [];
   for (const c of COUNTRY_SUPPORT) {
     for (const f of c.features) {
       const s = score(`${f.label} ${f.description}`, terms);
@@ -94,6 +98,13 @@ export function featureSearch(args: FeatureSearchArgs) {
         });
       }
     }
+  }
+  return hits;
+}
+
+function scorePayrollEngines(terms: string[]): FeatureSearchHit[] {
+  const hits: FeatureSearchHit[] = [];
+  for (const c of COUNTRY_SUPPORT) {
     for (const e of c.payrollEngines) {
       const s = score(`${e.label} ${e.authority} ${e.description}`, terms);
       if (s > 0) {
@@ -109,50 +120,61 @@ export function featureSearch(args: FeatureSearchArgs) {
       }
     }
   }
+  return hits;
+}
 
-  // Statutory rate matching: scheme + label + state + notes form the haystack.
-  // "PF rate", "ESI threshold", "PT slab Maharashtra", "Super Guarantee" all
-  // route to the right entry. Per-scheme matches get a small boost so a query
-  // like "PF" prefers the rate entry over a tangentially-mentioning feature.
-  for (const r of STATUTORY_RATES) {
-    const blob = `${r.scheme} ${r.label} ${r.state ?? ''} ${r.notes?.join(' ') ?? ''}`;
-    const s = score(blob, terms);
-    if (s > 0) {
-      // Build a compact description string suitable for an LLM context window.
-      let valueText = '';
-      if (r.rateType === 'percentage' && r.rate !== undefined) {
-        valueText = `${(r.rate * 100).toFixed(2).replace(/\.00$/, '')}%`;
-      } else if (r.rateType === 'flat-monthly' && r.flatAmount !== undefined) {
-        valueText = `${r.currency} ${r.flatAmount.toLocaleString('en-US')}`;
-      } else if (r.rateType === 'slab') {
-        valueText = `${r.slabs?.length ?? 0} slabs`;
-      }
-      const ceilingNote = r.wageCeiling
-        ? ` · ceiling ${r.currency} ${r.wageCeiling.toLocaleString('en-US')}`
-        : '';
-      const applicabilityNote = r.applicableIfGrossLte
-        ? ` · applies if gross ≤ ${r.currency} ${r.applicableIfGrossLte.toLocaleString('en-US')}`
-        : '';
-      hits.push({
-        source: 'statutory-rate',
-        id: r.id,
-        label: r.label,
-        description: `${valueText} on ${r.appliedTo}${ceilingNote}${applicabilityNote} · ${r.authority} (${r.verification})`,
-        context: r.country,
-        url: r.source.startsWith('http') ? r.source : undefined,
-        score: s + 2,
-      });
-    }
+// Build a compact rate value string suitable for an LLM context window.
+function formatRateValue(r: (typeof STATUTORY_RATES)[number]): string {
+  if (r.rateType === 'percentage' && r.rate !== undefined) {
+    return `${(r.rate * 100).toFixed(2).replace(/\.00$/, '')}%`;
   }
+  if (r.rateType === 'flat-monthly' && r.flatAmount !== undefined) {
+    return `${r.currency} ${r.flatAmount.toLocaleString('en-US')}`;
+  }
+  if (r.rateType === 'slab') {
+    return `${r.slabs?.length ?? 0} slabs`;
+  }
+  return '';
+}
 
-  // Competitor matching: rank highest when the user query references the
-  // competitor by name or id, including "vs X" / "X alternative" patterns.
-  // The `vs` and `alternative` tokens themselves are noise and dropped so a
-  // query like "vs Truein" scores Truein hard, not every feature that says "vs".
+// Statutory rate matching: scheme + label + state + notes form the haystack.
+// "PF rate", "ESI threshold", "PT slab Maharashtra", "Super Guarantee" all
+// route to the right entry. Per-scheme matches get a small boost so a query
+// like "PF" prefers the rate entry over a tangentially-mentioning feature.
+function scoreStatutoryRates(terms: string[]): FeatureSearchHit[] {
+  const hits: FeatureSearchHit[] = [];
+  for (const r of STATUTORY_RATES) {
+    const s = score(`${r.scheme} ${r.label} ${r.state ?? ''} ${r.notes?.join(' ') ?? ''}`, terms);
+    if (s === 0) continue;
+    const ceilingNote = r.wageCeiling
+      ? ` · ceiling ${r.currency} ${r.wageCeiling.toLocaleString('en-US')}`
+      : '';
+    const applicabilityNote = r.applicableIfGrossLte
+      ? ` · applies if gross ≤ ${r.currency} ${r.applicableIfGrossLte.toLocaleString('en-US')}`
+      : '';
+    hits.push({
+      source: 'statutory-rate',
+      id: r.id,
+      label: r.label,
+      description: `${formatRateValue(r)} on ${r.appliedTo}${ceilingNote}${applicabilityNote} · ${r.authority} (${r.verification})`,
+      context: r.country,
+      url: r.source.startsWith('http') ? r.source : undefined,
+      score: s + 2,
+    });
+  }
+  return hits;
+}
+
+// Competitor matching: rank highest when the user query references the
+// competitor by name or id, including "vs X" / "X alternative" patterns.
+// The `vs` and `alternative` tokens themselves are noise and dropped so a
+// query like "vs Truein" scores Truein hard, not every feature that says "vs".
+function scoreCompetitors(terms: string[]): FeatureSearchHit[] {
   const stopTerms = new Set(['vs', 'versus', 'compared', 'compare', 'comparison', 'alternative', 'to']);
   const competitorTerms = terms.filter((t) => !stopTerms.has(t.toLowerCase()));
+  const hits: FeatureSearchHit[] = [];
   for (const c of COMPETITORS) {
-    const nameScore = score(`${c.name} ${c.id} ${c.id.replace(/-/g, ' ')}`, competitorTerms);
+    const nameScore = score(`${c.name} ${c.id} ${c.id.replaceAll('-', ' ')}`, competitorTerms);
     const bodyScore = score(`${c.positioningSummary} ${c.segment}`, competitorTerms);
     const s = nameScore * 3 + bodyScore;
     if (s > 0) {
@@ -167,14 +189,17 @@ export function featureSearch(args: FeatureSearchArgs) {
       });
     }
   }
+  return hits;
+}
 
-  // Payment-method matching: name + authority + notes form the haystack.
-  // Restricted to entries whose use-cases intersect HelloTime's scope so an
-  // unrelated p2p / pure-AR rail doesn't crowd payroll-relevant search results.
+// Payment-method matching: name + authority + notes form the haystack.
+// Restricted to entries whose use-cases intersect HelloTime's scope so an
+// unrelated p2p / pure-AR rail doesn't crowd payroll-relevant search results.
+function scorePaymentMethods(terms: string[]): FeatureSearchHit[] {
+  const hits: FeatureSearchHit[] = [];
   for (const m of PAYMENT_METHODS) {
     if (!m.useCases.some((u) => HELLOTIME_USE_CASES.includes(u))) continue;
-    const blob = `${m.name} ${m.authority} ${m.notes?.join(' ') ?? ''}`;
-    const s = score(blob, terms);
+    const s = score(`${m.name} ${m.authority} ${m.notes?.join(' ') ?? ''}`, terms);
     if (s > 0) {
       const supportNote = m.helloProductSupport ? ` · ${m.helloProductSupport}` : '';
       hits.push({
@@ -187,6 +212,22 @@ export function featureSearch(args: FeatureSearchArgs) {
       });
     }
   }
+  return hits;
+}
+
+export function featureSearch(args: FeatureSearchArgs) {
+  const limit = args.limit ?? 20;
+  const terms = args.query.trim().split(/\s+/).filter(Boolean);
+
+  const hits: FeatureSearchHit[] = [
+    ...scorePlanFeatures(terms),
+    ...scoreFeatureCatalog(terms),
+    ...scoreCountryFeatures(terms),
+    ...scorePayrollEngines(terms),
+    ...scoreStatutoryRates(terms),
+    ...scoreCompetitors(terms),
+    ...scorePaymentMethods(terms),
+  ];
 
   hits.sort((a, b) => b.score - a.score);
   return {

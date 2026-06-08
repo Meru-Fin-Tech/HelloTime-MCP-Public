@@ -185,5 +185,12 @@ export function createServer(): McpServer {
 }
 
 // Re-exports useful for tests
-export { listPlans, listFeatures, countrySupport, payrollCapabilities, featureSearch, statutoryRates, listCompetitors, localPaymentMethods };
+export { listPlans } from './tools/listPlans.js';
+export { listFeatures } from './tools/listFeatures.js';
+export { countrySupport } from './tools/countrySupport.js';
+export { payrollCapabilities } from './tools/payrollCapabilities.js';
+export { featureSearch } from './tools/featureSearch.js';
+export { statutoryRates } from './tools/statutoryRates.js';
+export { listCompetitors } from './tools/listCompetitors.js';
+export { localPaymentMethods } from './tools/paymentMethods.js';
 export const _internal = { z };

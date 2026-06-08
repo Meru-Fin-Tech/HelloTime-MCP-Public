@@ -48,7 +48,7 @@ export interface ChangelogEntry {
 /**
  * Last 50 changelog entries — kept in sync with /changelog on the marketing site.
  *
- * TODO(federation): replace with a fetch from
+ * Future (federation): this static list can be replaced with a fetch from
  *   https://hellotime.ai/api/public/changelog?limit=50
  * once the marketing backend ships that endpoint.
  */

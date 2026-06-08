@@ -13,8 +13,8 @@
  * 99.9% SLA, dedicated success manager) folded into Business. Enterprise-shaped
  * deals are now sold as "Business + add-ons quoted" via /contact.
  *
- * TODO(federation): once the marketing site exposes /api/public/pricing,
- * switch this module to fetch + cache from that endpoint and drop the static copy.
+ * Future (federation): once the marketing site exposes /api/public/pricing,
+ * this module can fetch + cache from that endpoint and drop the static copy.
  */
 
 export type CountryCode = 'IN' | 'US' | 'CA' | 'GB' | 'AU' | 'AE' | 'SG' | 'NZ';
