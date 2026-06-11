@@ -59,6 +59,7 @@ const ATTEND_FEATURES = [
   'GPS geofence + multi-site',
   'Tablet kiosk mode',
   'Leave & shift management',
+  'Holiday calendars + overtime rules',
   'WhatsApp / SMS clock-in',
   'Email support',
 ];
