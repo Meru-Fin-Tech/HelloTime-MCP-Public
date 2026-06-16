@@ -22,6 +22,19 @@ import { emitMcpAnalytics } from './requestAnalytics.js';
 import { analyticsStore } from './analyticsStore.js';
 import { createInternalAnalyticsRouter } from './internalAnalytics.js';
 import { SERVER_VERSION, SERVER_DESCRIPTION } from './version.js';
+import {
+  generateAgentCard,
+  generateAiPluginManifest,
+  generateCatalogJson,
+  generateChangelogJson,
+  generateLandingHtml,
+  generateLlmsTxt,
+  generateMcpDiscovery,
+  generateOpenApi,
+  generateRobotsTxt,
+  generateRssFeed,
+  generateSitemap,
+} from './discovery.js';
 
 const PORT = Number(process.env.PORT ?? 8080);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -218,8 +231,59 @@ app.get('/info', (_req, res) => {
     install: 'claude mcp add --transport http hellotime https://mcp.hellotime.ai/mcp',
     docs: 'https://hellotime.ai/mcp',
     repository: 'https://github.com/Meru-Fin-Tech/HelloTime-MCP-Public',
+    discovery: {
+      landing: '/',
+      agent_card: '/.well-known/agent.json',
+      ai_plugin: '/.well-known/ai-plugin.json',
+      mcp: '/.well-known/mcp.json',
+      openapi: '/openapi.json',
+      llms_txt: '/llms.txt',
+      catalog: '/catalog.json',
+      changelog: '/changelog.json',
+      sitemap: '/sitemap.xml',
+      robots: '/robots.txt',
+      rss: '/feed.xml',
+    },
   });
 });
+
+// ---------------------------------------------------------------------------
+// Discovery surface
+// ---------------------------------------------------------------------------
+//
+// Static-by-construction generators in ./discovery.ts. Cache headers tuned so
+// bots see fresh data within 15 minutes of a deploy and edges stay warm for a
+// day. No rate-limiting on these — they are pure-function GETs with no per-
+// request state. Registered above the /mcp middleware so they never touch the
+// MCP request path.
+
+const CACHE_HEADERS = {
+  'Cache-Control': 'public, max-age=900, stale-while-revalidate=86400',
+} as const;
+
+function sendText(res: Response, body: string, contentType: string): void {
+  res.setHeader('Content-Type', contentType);
+  for (const [k, v] of Object.entries(CACHE_HEADERS)) res.setHeader(k, v);
+  res.send(body);
+}
+
+function sendJson(res: Response, body: unknown): void {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  for (const [k, v] of Object.entries(CACHE_HEADERS)) res.setHeader(k, v);
+  res.send(JSON.stringify(body, null, 2));
+}
+
+app.get('/', (_req, res) => sendText(res, generateLandingHtml(), 'text/html; charset=utf-8'));
+app.get('/llms.txt', (_req, res) => sendText(res, generateLlmsTxt(), 'text/plain; charset=utf-8'));
+app.get('/robots.txt', (_req, res) => sendText(res, generateRobotsTxt(), 'text/plain; charset=utf-8'));
+app.get('/sitemap.xml', (_req, res) => sendText(res, generateSitemap(), 'application/xml; charset=utf-8'));
+app.get('/feed.xml', (_req, res) => sendText(res, generateRssFeed(), 'application/rss+xml; charset=utf-8'));
+app.get('/openapi.json', (_req, res) => sendJson(res, generateOpenApi()));
+app.get('/catalog.json', (_req, res) => sendJson(res, generateCatalogJson()));
+app.get('/changelog.json', (_req, res) => sendJson(res, generateChangelogJson()));
+app.get('/.well-known/agent.json', (_req, res) => sendJson(res, generateAgentCard()));
+app.get('/.well-known/ai-plugin.json', (_req, res) => sendJson(res, generateAiPluginManifest()));
+app.get('/.well-known/mcp.json', (_req, res) => sendJson(res, generateMcpDiscovery()));
 
 // Protected internal analytics over the in-memory store. OFF by default: with
 // ANALYTICS_ADMIN_TOKEN unset every route 404s. Mounted off `/mcp` so it never
