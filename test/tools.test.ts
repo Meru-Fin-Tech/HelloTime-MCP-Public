@@ -13,7 +13,7 @@ import { localPaymentMethods } from '../src/tools/paymentMethods.js';
 test('list_plans returns all 5 tiers when unfiltered', () => {
   const r = listPlans({});
   const names = r.plans.map((p) => p.plan).sort();
-  assert.deepEqual(names, ['attend', 'business', 'free', 'pro', 'track']);
+  assert.deepEqual(names, ['attend', 'business', 'free', 'track']);
   // Each plan has prices for 8 countries
   for (const p of r.plans) {
     assert.equal(p.prices.length, 8);
@@ -36,13 +36,14 @@ test('list_plans Free plan is zero across every currency', () => {
   }
 });
 
-test('list_plans IN promo prices match canonical 5-tier ladder', () => {
-  // Mirror lib/pricing.ts on Hellotime-website main.
+test('list_plans IN prices match the canonical 4-tier ladder', () => {
+  // Mirror lib/pricing.ts on Hellotime-website main. Rung-shifted 2026-08-13:
+  // the old LIST price became the charged price and LIST doubled above it as a
+  // standing anchor. `pro` was retired into `business` in the same decision.
   const expected: Record<string, { promo: number; list: number }> = {
     free:     { promo: 0,   list: 0   },
-    attend:   { promo: 49,  list: 99  },
-    track:    { promo: 99,  list: 199 },
-    pro:      { promo: 199, list: 399 },
+    attend:   { promo: 99,  list: 199 },
+    track:    { promo: 199, list: 399 },
     business: { promo: 399, list: 799 },
   };
   const r = listPlans({ country: 'IN' });
@@ -84,9 +85,39 @@ test('list_features category filter works', () => {
   for (const f of r.features) assert.equal(f.category, 'biometric-kiosk');
 });
 
-test('list_features plan filter excludes higher-tier features for pro', () => {
-  const r = listFeatures({ plan: 'pro' });
-  for (const f of r.features) assert.ok(f.availableInPlans.includes('pro'));
+test('list_features plan filter excludes higher-tier features for track', () => {
+  const r = listFeatures({ plan: 'track' });
+  assert.ok(r.features.length > 0);
+  for (const f of r.features) assert.ok(f.availableInPlans.includes('track'));
+});
+
+test('the retired Pro plan is gone from every public surface', () => {
+  const plans = listPlans({});
+  assert.ok(!plans.plans.some((p) => p.plan === 'pro'), 'list_plans still returns pro');
+  const feats = listFeatures({});
+  for (const f of feats.features) {
+    assert.ok(!f.availableInPlans.includes('pro'), f.name + ' still lists pro');
+  }
+});
+
+test('the published ladder matches the founder decision of 2026-08-13', () => {
+  const plans = listPlans({});
+  const inr = (name) => {
+    const p = plans.plans.find((x) => x.plan === name);
+    return p.prices.find((r) => r.country === 'IN');
+  };
+  // Charged price, and the standing anchor above it.
+  assert.equal(inr('attend').monthlyPromo, 99);
+  assert.equal(inr('attend').monthlyList, 199);
+  assert.equal(inr('track').monthlyPromo, 199);
+  assert.equal(inr('business').monthlyPromo, 399);
+  // Floor: nothing sells below INR 99. Ceiling: nothing above INR 399 / $19.99.
+  const paid = ['attend', 'track', 'business'].map((n) => inr(n).monthlyPromo);
+  assert.ok(Math.min(...paid) >= 99, 'a plan is priced under the INR 99 floor');
+  assert.ok(Math.max(...paid) <= 399, 'a plan is priced over the INR 399 ceiling');
+  // Free is a single-user plan.
+  const free = plans.plans.find((p) => p.plan === 'free');
+  assert.ok(/single user|1 user/i.test(free.tagline), 'free tagline still implies multiple seats');
 });
 
 test('country_support returns full matrix when unfiltered', () => {

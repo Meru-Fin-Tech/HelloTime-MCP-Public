@@ -7,11 +7,18 @@
  * Public-only data: tier names, prices, currencies, feature bullets shown on
  * the public /pricing page. Never includes customer usage, billing, account ID.
  *
- * The 5-tier ladder (Free / Attend / Track / Pro / Business) supersedes the
- * earlier 3-tier (Pro / Business / Enterprise) ladder. The old "Enterprise"
- * tier was retired and its premium controls (SSO/SCIM, custom data residency,
- * 99.9% SLA, dedicated success manager) folded into Business. Enterprise-shaped
- * deals are now sold as "Business + add-ons quoted" via /contact.
+ * The 4-tier ladder is Free / Attend / Track / Business. "Pro" was retired on
+ * 2026-08-13 when Business became the all-in SKU at the $19.99 / INR 399
+ * ceiling, absorbing Pro's combined Attend+Track capability set on top of
+ * payroll, compliance and AI. The earlier "Enterprise" tier was retired before
+ * that, its premium controls (SSO/SCIM, custom data residency, 99.9% SLA,
+ * dedicated success manager) folded into Business; Enterprise-shaped deals are
+ * sold as "Business + add-ons quoted" via /contact.
+ *
+ * Prices are the CHARGED price (`monthlyPromo`) with a standing value anchor
+ * (`monthlyList`). The anchor has no expiry date: the 2026-08-13 rung-shift
+ * already consumed the promo->list step, so promoting promo to list again
+ * would double the charged price a second time.
  *
  * Future (federation): once the marketing site exposes /api/public/pricing,
  * this module can fetch + cache from that endpoint and drop the static copy.
@@ -19,7 +26,7 @@
 
 export type CountryCode = 'IN' | 'US' | 'CA' | 'GB' | 'AU' | 'AE' | 'SG' | 'NZ';
 export type CurrencyCode = 'INR' | 'USD' | 'CAD' | 'GBP' | 'AUD' | 'AED' | 'SGD' | 'NZD' | 'EUR';
-export type PlanType = 'free' | 'attend' | 'track' | 'pro' | 'business';
+export type PlanType = 'free' | 'attend' | 'track' | 'business';
 
 export interface PlanPrice {
   country: CountryCode;
@@ -41,12 +48,13 @@ export interface Plan {
   publicSignupUrl: string;
 }
 
-export const FREE_SEAT_CAP = 5;
+// Cut 5 -> 1 on 2026-08-13: Free is a single-user plan.
+export const FREE_SEAT_CAP = 1;
 export const FREE_TRIAL_DAYS = 7;
 export const ANNUAL_PREPAY_DISCOUNT_PERCENT = 20;
 
 const FREE_FEATURES = [
-  `Up to ${FREE_SEAT_CAP} employees`,
+  '1 user',
   'Leave & shift basics',
   'Mobile + web apps',
   'Manual attendance entry',
@@ -74,17 +82,12 @@ const TRACK_FEATURES = [
   'Email support',
 ];
 
-const PRO_FEATURES = [
+const BUSINESS_FEATURES = [
   'Everything in Attend',
   'Everything in Track',
   'Unified timesheets',
   'Multi-branch + departments',
   'Custom reports',
-  'Email + chat support',
-];
-
-const BUSINESS_FEATURES = [
-  'Everything in Pro',
   'Auto-payroll (TDS, PF, ESI, PT, LWF)',
   'Form 24Q + FVU export',
   'Compliance calendar',
@@ -102,7 +105,6 @@ interface RegionConfig {
   free:     { promo: number; list: number };
   attend:   { promo: number; list: number };
   track:    { promo: number; list: number };
-  pro:      { promo: number; list: number };
   business: { promo: number; list: number };
 }
 
@@ -111,51 +113,43 @@ const ANNUAL_PREPAY_DISCOUNT = ANNUAL_PREPAY_DISCOUNT_PERCENT / 100;
 const REGIONS: RegionConfig[] = [
   { country: 'IN', currency: 'INR', symbol: '₹',
     free:     { promo: 0,   list: 0   },
-    attend:   { promo: 49,  list: 99  },
-    track:    { promo: 99,  list: 199 },
-    pro:      { promo: 199, list: 399 },
+    attend:   { promo: 99,  list: 199 },
+    track:    { promo: 199, list: 399 },
     business: { promo: 399, list: 799 } },
   { country: 'US', currency: 'USD', symbol: '$',
     free:     { promo: 0,     list: 0     },
-    attend:   { promo: 1.99,  list: 3.99  },
-    track:    { promo: 4.99,  list: 9.99  },
-    pro:      { promo: 9.99,  list: 19.99 },
+    attend:   { promo: 3.99,  list: 7.99  },
+    track:    { promo: 9.99,  list: 19.99 },
     business: { promo: 19.99, list: 39.99 } },
   { country: 'GB', currency: 'GBP', symbol: '£',
     free:     { promo: 0,     list: 0     },
-    attend:   { promo: 1.99,  list: 2.99  },
-    track:    { promo: 3.99,  list: 7.99  },
-    pro:      { promo: 7.99,  list: 15.99 },
+    attend:   { promo: 2.99,  list: 5.99  },
+    track:    { promo: 7.99,  list: 15.99 },
     business: { promo: 15.99, list: 31.99 } },
   { country: 'AU', currency: 'AUD', symbol: 'A$',
     free:     { promo: 0,     list: 0     },
-    attend:   { promo: 2.99,  list: 5.99  },
-    track:    { promo: 7.49,  list: 14.99 },
-    pro:      { promo: 14.99, list: 29.99 },
+    attend:   { promo: 5.99,  list: 11.99 },
+    track:    { promo: 14.99, list: 29.99 },
     business: { promo: 29.99, list: 59.99 } },
   { country: 'CA', currency: 'CAD', symbol: 'C$',
     free:     { promo: 0,     list: 0     },
-    attend:   { promo: 2.99,  list: 4.99  },
-    track:    { promo: 6.99,  list: 13.99 },
-    pro:      { promo: 13.99, list: 27.99 },
+    attend:   { promo: 4.99,  list: 9.99  },
+    track:    { promo: 13.99, list: 27.99 },
     business: { promo: 27.99, list: 55.99 } },
   { country: 'AE', currency: 'AED', symbol: 'AED ',
     free:     { promo: 0,  list: 0   },
-    attend:   { promo: 9,  list: 18  },
-    track:    { promo: 18, list: 36  },
-    pro:      { promo: 36, list: 72  },
+    attend:   { promo: 18, list: 36  },
+    track:    { promo: 36, list: 72  },
     business: { promo: 72, list: 144 } },
   { country: 'SG', currency: 'SGD', symbol: 'S$',
     free:     { promo: 0,     list: 0     },
-    attend:   { promo: 2.99,  list: 4.99  },
-    track:    { promo: 6.99,  list: 13.99 },
-    pro:      { promo: 13.99, list: 27.99 },
+    attend:   { promo: 4.99,  list: 9.99  },
+    track:    { promo: 13.99, list: 27.99 },
     business: { promo: 27.99, list: 55.99 } },
   { country: 'NZ', currency: 'NZD', symbol: 'NZ$',
     free:     { promo: 0,     list: 0     },
-    attend:   { promo: 2.99,  list: 5.99  },
-    track:    { promo: 7.99,  list: 15.99 },
-    pro:      { promo: 15.99, list: 31.99 },
+    attend:   { promo: 5.99,  list: 11.99 },
+    track:    { promo: 15.99, list: 31.99 },
     business: { promo: 31.99, list: 63.99 } },
 ];
 
@@ -184,7 +178,7 @@ export const PLANS: Plan[] = [
   {
     plan: 'free',
     name: 'Free',
-    tagline: `Permanent free plan for teams up to ${FREE_SEAT_CAP} employees.`,
+    tagline: 'Permanent free plan for a single user.',
     freeTrialDays: 0,
     features: FREE_FEATURES,
     prices: pricesFor('free'),
@@ -209,18 +203,9 @@ export const PLANS: Plan[] = [
     publicSignupUrl: 'https://hellotime.ai/signup',
   },
   {
-    plan: 'pro',
-    name: 'Pro',
-    tagline: 'Attend + Track combined — one timesheet across deskless and desk.',
-    freeTrialDays: FREE_TRIAL_DAYS,
-    features: PRO_FEATURES,
-    prices: pricesFor('pro'),
-    publicSignupUrl: 'https://hellotime.ai/signup',
-  },
-  {
     plan: 'business',
     name: 'Business',
-    tagline: 'Pro + payroll + compliance calendar + AI manager assist + SSO/SCIM.',
+    tagline: 'Attend + Track combined, plus payroll, compliance calendar, AI manager assist and SSO/SCIM.',
     freeTrialDays: FREE_TRIAL_DAYS,
     features: BUSINESS_FEATURES,
     prices: pricesFor('business'),

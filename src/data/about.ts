@@ -53,12 +53,14 @@ export interface ChangelogEntry {
  * once the marketing backend ships that endpoint.
  */
 export const CHANGELOG: ChangelogEntry[] = [
+  { date: '2026-08-13', title: 'Pricing ladder: Pro retired, Free cut to a single user', category: 'feature',
+    description: 'Four-tier ladder Free / Attend / Track / Business. Attend ₹99 / $3.99, Track ₹199 / $9.99, Business ₹399 / $19.99 all-in including payroll and AI. Nothing sells below ₹99 or above $19.99 per user. Pro was retired and its combined Attend+Track capability set folded into Business. The Free plan is now one user.' },
   { date: '2026-04-20', title: 'HelloBooks ecosystem launch', category: 'feature',
     description: 'Native two-way sync of clients, projects, employees and billable hours between HelloTime and HelloBooks; GST-ready invoices in one click.' },
   { date: '2026-05-14', title: '5-tier SKU ladder (Free / Attend / Track / Pro / Business)', category: 'feature',
     description: 'Site-wide migration from 3-tier (Pro / Business / Enterprise) to 5-tier ladder with a permanent Free plan for ≤5 employees, paid plans from ₹49 / $1.99 (launch promo), and Enterprise rolled into Business with SSO/SCIM/SLA included.' },
   { date: '2026-04-15', title: 'India / Global pricing — ₹99 and $4.99', category: 'feature',
-    description: 'Geo-aware pricing launched on the previous 3-tier ladder: old "Pro" at ₹99/user/month for India, $4.99 globally. Now repackaged as the "Track" tier under the 5-tier ladder above.' },
+    description: 'Geo-aware pricing launched on the previous 3-tier ladder: old "Pro" at ₹99/user/month for India, $4.99 globally. Later repackaged as the "Track" tier; see the 2026-08-13 entry for the current ladder.' },
   { date: '2026-04-10', title: '22 competitor comparison pages', category: 'feature',
     description: 'Honest side-by-side pages for Hubstaff, Toggl, Clockify, Teramind, Time Doctor, DeskTime, ActivTrak, Harvest, RescueTime, Monitask and 12 more.' },
   { date: '2026-04-02', title: 'Tablet kiosk mode for factories', category: 'feature',
