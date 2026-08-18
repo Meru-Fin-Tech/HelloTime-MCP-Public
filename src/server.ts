@@ -102,7 +102,7 @@ export function createServer(): McpServer {
 
   server.tool(
     'list_plans',
-    'List HelloTime pricing plans (Free, Attend, Track, Pro, Business) with launch + list prices per region, plus volume and annual prepay discounts. Free is permanent for teams up to 5 employees; paid tiers each include a 7-day free trial.',
+    'List HelloTime pricing plans (Free, Attend, Track, Business) with the charged price and a standing list-price anchor per region, plus volume and annual prepay discounts. Free is permanent for a single user; paid tiers each include a 7-day free trial.',
     listPlansSchema,
     async (args, extra) => runTool('list_plans', args, extra, () => listPlans(args)),
   );

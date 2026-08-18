@@ -82,7 +82,7 @@ export const TOOL_CATALOG: readonly ToolMeta[] = [
     name: 'list_plans',
     title: 'List HelloTime pricing plans',
     summary:
-      'HelloTime plan tiers (Free, Attend, Track, Pro, Business) with launch + list prices per region, plus volume and annual-prepay discounts. Free is permanent for teams up to 5 employees; paid tiers each include a 7-day free trial.',
+      'HelloTime plan tiers (Free, Attend, Track, Business) with the charged price and a standing list-price anchor per region, plus volume and annual-prepay discounts. Free is permanent for a single user; paid tiers each include a 7-day free trial.',
     category: 'pricing',
     marketingUrl: `${MARKETING_BASE_URL}/pricing`,
   },
